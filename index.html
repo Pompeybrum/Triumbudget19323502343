@@ -181,6 +181,7 @@ select option{background:#1a1816;color:var(--paper)}
     <div class="nav-item" onclick="nav('income')"><span class="nav-icon">↑</span> Add income</div>
     <div class="nav-item" onclick="nav('expense')"><span class="nav-icon">↓</span> Add expense</div>
     <div class="nav-item" onclick="nav('ledger')"><span class="nav-icon">≡</span> Ledger</div>
+    <div class="nav-item" onclick="nav('transfer')"><span class="nav-icon">⇄</span> Transfer</div>
     <div class="nav-section">Admin</div>
     <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙</span> Settings</div>
     <div class="sidebar-footer">
@@ -220,7 +221,7 @@ select option{background:#1a1816;color:var(--paper)}
     <div id="page-income" class="page">
       <div class="page-header">
         <div class="page-title">Add income</div>
-        <div class="page-sub">Revenue is split across all pots automatically</div>
+        <div class="page-sub" id="income-sub">Revenue is split across all pots automatically</div>
       </div>
       <div class="card">
         <div class="form-grid">
@@ -237,13 +238,30 @@ select option{background:#1a1816;color:var(--paper)}
           <label class="form-label">Note</label>
           <input type="text" id="inc-note" placeholder="e.g. Week 22 — pack sales + marketplace fees">
         </div>
-        <div id="dist-preview" class="dist-preview" style="display:none;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:8px;">Distribution</div>
-          <div id="dist-rows"></div>
+
+        <div style="display:flex;gap:8px;margin-bottom:16px;padding:3px;background:rgba(255,255,255,0.04);border-radius:8px;width:fit-content;">
+          <button id="mode-all-btn" class="btn btn-primary btn-sm" onclick="setIncomeMode('all')" style="border-radius:6px;">All pots</button>
+          <button id="mode-custom-btn" class="btn btn-ghost btn-sm" onclick="setIncomeMode('custom')" style="border-radius:6px;">Specific pots</button>
         </div>
+
+        <div id="custom-pots-section" style="display:none;margin-bottom:14px;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Select which pots to distribute to — percentages will be re-proportioned across selected pots</div>
+          <div id="pot-checkboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;"></div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="selectAllPots(true)">Select all</button>
+            <button class="btn btn-ghost btn-sm" onclick="selectAllPots(false)">Clear all</button>
+          </div>
+        </div>
+
+        <div id="dist-preview" class="dist-preview" style="display:none;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:8px;">Distribution preview</div>
+          <div id="dist-rows"></div>
+          <div id="dist-unallocated" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(168,149,106,0.2);font-size:12px;color:#FFC107;"></div>
+        </div>
+
         <div style="margin-top:14px;display:flex;gap:10px;">
           <button class="btn btn-primary" onclick="addIncome()">Distribute to pots</button>
-          <button class="btn btn-ghost" onclick="document.getElementById('inc-amount').value='';document.getElementById('inc-note').value='';document.getElementById('dist-preview').style.display='none'">Clear</button>
+          <button class="btn btn-ghost" onclick="clearIncome()">Clear</button>
         </div>
       </div>
     </div>
@@ -312,6 +330,55 @@ select option{background:#1a1816;color:var(--paper)}
           </thead>
           <tbody id="ledger-body"></tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- TRANSFER -->
+    <div id="page-transfer" class="page">
+      <div class="page-header">
+        <div class="page-title">Transfer</div>
+        <div class="page-sub">Move money between pots — useful for rebalancing or correcting entries</div>
+      </div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">From pot</label>
+            <select id="tr-from" onchange="checkTransferBalance()"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">To pot</label>
+            <select id="tr-to"></select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" id="tr-amount" placeholder="0.00" step="0.01" oninput="checkTransferBalance()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="tr-date">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Reason</label>
+          <input type="text" id="tr-note" placeholder="e.g. Moving surplus from prize pool to treasury">
+        </div>
+        <div id="tr-preview" style="display:none;margin-bottom:14px;">
+          <div class="dist-preview">
+            <div id="tr-preview-text" style="font-size:13px;color:var(--paper);"></div>
+            <div id="tr-balance-warn" style="display:none;margin-top:8px;font-size:12px;color:#FFC107;">⚠ This pot only has <span id="tr-from-bal"></span> — transfer will put it into negative.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="doTransfer()">Move funds</button>
+          <button class="btn btn-ghost" onclick="clearTransfer()">Clear</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:8px;">
+        <div class="card-label">Recent transfers</div>
+        <div id="transfer-history"></div>
       </div>
     </div>
 
@@ -576,13 +643,81 @@ function reconcile(){
   }
 }
 
+let incomeMode='all';
+
+function setIncomeMode(mode){
+  incomeMode=mode;
+  const allBtn=document.getElementById('mode-all-btn');
+  const customBtn=document.getElementById('mode-custom-btn');
+  const customSection=document.getElementById('custom-pots-section');
+  const sub=document.getElementById('income-sub');
+  if(mode==='all'){
+    allBtn.className='btn btn-primary btn-sm';
+    customBtn.className='btn btn-ghost btn-sm';
+    customSection.style.display='none';
+    sub.textContent='Revenue is split across all pots automatically';
+  }else{
+    allBtn.className='btn btn-ghost btn-sm';
+    customBtn.className='btn btn-primary btn-sm';
+    customSection.style.display='block';
+    sub.textContent='Choose which pots to receive this income';
+    renderPotCheckboxes();
+  }
+  previewDist();
+}
+
+function renderPotCheckboxes(){
+  const container=document.getElementById('pot-checkboxes');
+  container.innerHTML=S.allocations.map(p=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;color:var(--paper);">
+      <input type="checkbox" id="chk-${p.key}" checked onchange="previewDist()" style="width:14px;height:14px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;">
+      <div class="dot-badge" style="background:${p.color};width:8px;height:8px;border-radius:2px;flex-shrink:0;"></div>
+      ${p.name} <span style="color:var(--muted);font-size:11px;margin-left:auto;">${p.pct}%</span>
+    </label>`).join('');
+}
+
+function selectAllPots(val){
+  S.allocations.forEach(p=>{
+    const el=document.getElementById('chk-'+p.key);
+    if(el)el.checked=val;
+  });
+  previewDist();
+}
+
+function getSelectedPots(){
+  if(incomeMode==='all')return S.allocations;
+  return S.allocations.filter(p=>{
+    const el=document.getElementById('chk-'+p.key);
+    return el&&el.checked;
+  });
+}
+
 function previewDist(){
   const amt=parseFloat(document.getElementById('inc-amount').value);
   const p=document.getElementById('dist-preview');
   const rows=document.getElementById('dist-rows');
+  const unallocEl=document.getElementById('dist-unallocated');
   if(!amt||amt<=0){p.style.display='none';return;}
+  const selected=getSelectedPots();
+  if(!selected.length){p.style.display='none';return;}
   p.style.display='block';
-  rows.innerHTML=S.allocations.map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(amt*a.pct/100)}</span></div>`).join('');
+  if(incomeMode==='all'){
+    rows.innerHTML=S.allocations.map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(amt*a.pct/100)}</span></div>`).join('');
+    unallocEl.style.display='none';
+  }else{
+    const totalPct=selected.reduce((s,a)=>s+a.pct,0);
+    rows.innerHTML=selected.map(a=>{
+      const share=totalPct>0?parseFloat((amt*a.pct/totalPct).toFixed(2)):0;
+      return`<div class="dist-row"><span>${a.name} (${a.pct}% → ${totalPct>0?Math.round(a.pct/totalPct*100):0}% of selected)</span><span>+${fmt(share)}</span></div>`;
+    }).join('');
+    const unselected=S.allocations.filter(a=>!selected.find(s=>s.key===a.key));
+    if(unselected.length){
+      unallocEl.style.display='block';
+      unallocEl.textContent=`⚠ ${unselected.map(a=>a.name).join(', ')} will receive nothing from this income entry.`;
+    }else{
+      unallocEl.style.display='none';
+    }
+  }
 }
 
 function addIncome(){
@@ -590,20 +725,35 @@ function addIncome(){
   const date=document.getElementById('inc-date').value;
   const note=document.getElementById('inc-note').value||'Revenue';
   if(!amount||amount<=0||!date){toast('Enter a valid amount and date.',false);return;}
+  const selected=getSelectedPots();
+  if(!selected.length){toast('Please select at least one pot.',false);return;}
   const potsSnap={};
-  S.allocations.forEach(p=>{
-    const share=parseFloat((amount*p.pct/100).toFixed(2));
-    S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
-    potsSnap[p.key]=share;
-  });
-  S.transactions.push({id:uid(),type:'income',amount,date,note,pots:potsSnap});
+  if(incomeMode==='all'){
+    S.allocations.forEach(p=>{
+      const share=parseFloat((amount*p.pct/100).toFixed(2));
+      S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
+      potsSnap[p.key]=share;
+    });
+  }else{
+    const totalPct=selected.reduce((s,a)=>s+a.pct,0);
+    selected.forEach(p=>{
+      const share=totalPct>0?parseFloat((amount*p.pct/totalPct).toFixed(2)):0;
+      S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
+      potsSnap[p.key]=share;
+    });
+  }
+  S.transactions.push({id:uid(),type:'income',amount,date,note,pots:potsSnap,mode:incomeMode});
   S.lastUpdated=new Date().toISOString();
   saveToBin();render();
+  clearIncome();
+  toast(incomeMode==='all'?'Revenue distributed across all pots.':'Revenue distributed across selected pots.');
+  nav('overview');
+}
+
+function clearIncome(){
   document.getElementById('inc-amount').value='';
   document.getElementById('inc-note').value='';
   document.getElementById('dist-preview').style.display='none';
-  toast('Revenue distributed across all pots.');
-  nav('overview');
 }
 
 function addExpense(){
@@ -628,6 +778,9 @@ function deleteTxn(id){
   if(!t)return;
   if(t.type==='income'){
     S.allocations.forEach(p=>{const sh=t.pots?.[p.key]||0;S.pots[p.key]=parseFloat(((S.pots[p.key]||0)-sh).toFixed(2));});
+  }else if(t.type==='transfer'){
+    S.pots[t.fromPot]=parseFloat(((S.pots[t.fromPot]||0)+t.amount).toFixed(2));
+    S.pots[t.toPot]=parseFloat(((S.pots[t.toPot]||0)-t.amount).toFixed(2));
   }else{
     S.pots[t.pot]=parseFloat(((S.pots[t.pot]||0)+t.amount).toFixed(2));
   }
@@ -676,12 +829,14 @@ function resetAll(){
 function nav(name){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
-  const pages=['overview','income','expense','ledger','settings'];
+  const pages=['overview','income','expense','ledger','transfer','settings'];
   const idx=pages.indexOf(name);
   document.querySelectorAll('.nav-item')[idx].classList.add('active');
   document.getElementById('page-'+name).classList.add('active');
   if(name==='expense')renderExpPots();
+  if(name==='transfer'){renderTransferPots();renderTransferHistory();setTodayDates();}
   if(name==='income'||name==='expense')setTodayDates();
+  if(name==='income'){incomeMode='all';}
   if(name==='ledger')renderLedger();
 }
 
@@ -697,6 +852,78 @@ function toast(msg,ok=true){
   el.style.display='block';
   clearTimeout(el._t);
   el._t=setTimeout(()=>el.style.display='none',3500);
+}
+
+function renderTransferPots(){
+  const opts=S.allocations.map(p=>`<option value="${p.key}">${p.name} (${fmtS(pot(p.key))})</option>`).join('');
+  document.getElementById('tr-from').innerHTML=opts;
+  document.getElementById('tr-to').innerHTML=opts;
+  if(S.allocations.length>1)document.getElementById('tr-to').selectedIndex=1;
+}
+
+function checkTransferBalance(){
+  const fromKey=document.getElementById('tr-from').value;
+  const amount=parseFloat(document.getElementById('tr-amount').value)||0;
+  const toKey=document.getElementById('tr-to').value;
+  const preview=document.getElementById('tr-preview');
+  const warn=document.getElementById('tr-balance-warn');
+  if(!amount||amount<=0){preview.style.display='none';return;}
+  preview.style.display='block';
+  const fromName=S.allocations.find(p=>p.key===fromKey)?.name||fromKey;
+  const toName=S.allocations.find(p=>p.key===toKey)?.name||toKey;
+  document.getElementById('tr-preview-text').textContent=`Move ${fmt(amount)} from ${fromName} → ${toName}`;
+  const fromBal=pot(fromKey);
+  if(amount>fromBal){
+    warn.style.display='block';
+    document.getElementById('tr-from-bal').textContent=fmtS(fromBal);
+  }else{
+    warn.style.display='none';
+  }
+}
+
+function doTransfer(){
+  const fromKey=document.getElementById('tr-from').value;
+  const toKey=document.getElementById('tr-to').value;
+  const amount=parseFloat(document.getElementById('tr-amount').value);
+  const date=document.getElementById('tr-date').value;
+  const note=document.getElementById('tr-note').value||'Pot transfer';
+  if(!amount||amount<=0||!date){toast('Enter a valid amount and date.',false);return;}
+  if(fromKey===toKey){toast('From and To pots must be different.',false);return;}
+  S.pots[fromKey]=parseFloat(((S.pots[fromKey]||0)-amount).toFixed(2));
+  S.pots[toKey]=parseFloat(((S.pots[toKey]||0)+amount).toFixed(2));
+  S.transactions.push({id:uid(),type:'transfer',amount,date,note,fromPot:fromKey,toPot:toKey});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();renderTransferPots();renderTransferHistory();
+  clearTransfer();
+  toast('Transfer complete.');
+}
+
+function clearTransfer(){
+  document.getElementById('tr-amount').value='';
+  document.getElementById('tr-note').value='';
+  document.getElementById('tr-preview').style.display='none';
+}
+
+function renderTransferHistory(){
+  const el=document.getElementById('transfer-history');
+  const transfers=[...S.transactions].filter(t=>t.type==='transfer').reverse().slice(0,10);
+  if(!transfers.length){el.innerHTML='<div class="empty" style="padding:20px">No transfers yet</div>';return;}
+  el.innerHTML=`<table class="ledger-table" style="width:100%">
+    <thead><tr><th>Date</th><th>From</th><th>To</th><th>Amount</th><th>Note</th><th></th></tr></thead>
+    <tbody>${transfers.map(t=>{
+      const fromName=S.allocations.find(p=>p.key===t.fromPot)?.name||t.fromPot;
+      const toName=S.allocations.find(p=>p.key===t.toPot)?.name||t.toPot;
+      const d=new Date(t.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+      return`<tr>
+        <td style="color:var(--muted);white-space:nowrap">${d}</td>
+        <td style="font-size:12px;color:var(--muted)">${fromName}</td>
+        <td style="font-size:12px;color:var(--muted)">${toName}</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--gold)">${fmt(t.amount)}</td>
+        <td style="font-size:12px;color:var(--muted)">${t.note||'—'}</td>
+        <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteTxn('${t.id}')">Remove</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
 }
 
 // AUTO-LOGIN
