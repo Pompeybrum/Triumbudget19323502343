@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pot Accounts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --ink:#0E0C0A;--paper:#F5F0E8;--paper-dark:#EDE6D6;
+  --crimson:#8B1A2E;--gold:#A8956A;--gold-light:#C4A95A;
+  --muted:#7A7060;--steel:#2C2C2A;--surface:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.09);--green:#2e7d32;--green-bg:rgba(46,125,50,0.12);
+  --amber:#BA7517;--amber-bg:rgba(186,117,23,0.12);--red:#A32D2D;--red-bg:rgba(163,45,45,0.12);
+}
+body{background:var(--ink);color:var(--paper);font-family:'DM Sans',sans-serif;font-weight:300;min-height:100vh;line-height:1.5}
+a{color:inherit}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+/* SIDEBAR */
+.sidebar{background:rgba(0,0,0,0.4);border-right:1px solid var(--border);padding:24px 0;display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:0 20px 24px;border-bottom:1px solid var(--border);margin-bottom:16px}
+.sidebar-logo h1{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:0.06em;color:var(--paper);line-height:1}
+.sidebar-logo p{font-size:11px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-top:3px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--muted);cursor:pointer;border-left:2px solid transparent;transition:all 0.15s}
+.nav-item:hover{color:var(--paper);background:var(--surface)}
+.nav-item.active{color:var(--paper);border-left-color:var(--gold);background:var(--surface)}
+.nav-icon{font-size:15px;width:18px;text-align:center}
+.nav-section{font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:16px 20px 6px;opacity:0.6}
+.sidebar-footer{margin-top:auto;padding:16px 20px;border-top:1px solid var(--border)}
+.sync-status{font-size:11px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.sync-dot{width:6px;height:6px;border-radius:50%;background:var(--muted);flex-shrink:0}
+.sync-dot.ok{background:var(--green)}
+.sync-dot.err{background:var(--red)}
+.sync-dot.loading{background:var(--amber);animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+/* MAIN */
+.main{overflow-y:auto}
+.page{display:none;padding:32px;max-width:960px}
+.page.active{display:block}
+.page-header{margin-bottom:28px}
+.page-title{font-family:'Bebas Neue',sans-serif;font-size:40px;letter-spacing:0.04em;color:var(--paper);line-height:1}
+.page-sub{font-size:13px;color:var(--muted);margin-top:4px}
+/* CARDS */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 24px;margin-bottom:16px}
+.card-label{font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:12px;font-weight:500}
+/* POTS GRID */
+.pots-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:24px}
+.pot-card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;border-top:3px solid var(--pot-color,var(--gold))}
+.pot-name{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:6px}
+.pot-balance{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--paper)}
+.pot-balance.neg{color:#E57373}
+.pot-alloc{font-size:11px;color:var(--muted);margin-top:3px}
+/* METRICS ROW */
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:24px}
+.metric{background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:8px;padding:14px 16px}
+.metric-label{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:4px}
+.metric-val{font-family:'DM Mono',monospace;font-size:22px;font-weight:500;color:var(--paper)}
+.metric-sub{font-size:11px;color:var(--muted);margin-top:2px}
+/* FORMS */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.form-grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted)}
+input[type=text],input[type=number],input[type=date],input[type=password],select,textarea{
+  background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:6px;
+  color:var(--paper);font-family:'DM Sans',sans-serif;font-size:13px;padding:9px 12px;
+  width:100%;outline:none;transition:border-color 0.15s;-webkit-appearance:none}
+input:focus,select:focus,textarea:focus{border-color:rgba(168,149,106,0.5);background:rgba(168,149,106,0.06)}
+select option{background:#1a1816;color:var(--paper)}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 20px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.15s;font-family:'DM Sans',sans-serif}
+.btn-primary{background:var(--gold);color:var(--ink)}
+.btn-primary:hover{background:var(--gold-light)}
+.btn-ghost{background:transparent;border:1px solid var(--border);color:var(--muted)}
+.btn-ghost:hover{border-color:rgba(255,255,255,0.2);color:var(--paper)}
+.btn-danger{background:var(--red-bg);border:1px solid rgba(163,45,45,0.3);color:#E57373}
+.btn-danger:hover{background:rgba(163,45,45,0.2)}
+.btn-sm{padding:5px 12px;font-size:12px}
+/* DISTRIBUTION PREVIEW */
+.dist-preview{background:rgba(168,149,106,0.06);border:1px solid rgba(168,149,106,0.2);border-radius:6px;padding:14px;margin:12px 0}
+.dist-row{display:flex;justify-content:space-between;padding:3px 0;font-size:12px;color:var(--muted)}
+.dist-row span:last-child{color:var(--paper);font-family:'DM Mono',monospace}
+/* LEDGER */
+.ledger-filters{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.ledger-filters select{width:auto;flex:1;min-width:120px}
+.ledger-table{width:100%;border-collapse:collapse}
+.ledger-table th{font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);font-weight:400}
+.ledger-table td{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:13px;vertical-align:middle}
+.ledger-table tr:last-child td{border-bottom:none}
+.badge{font-size:10px;padding:3px 9px;border-radius:20px;font-weight:500;letter-spacing:0.04em}
+.badge-in{background:var(--green-bg);color:#81C784}
+.badge-out{background:var(--red-bg);color:#E57373}
+.amt-in{color:#81C784;font-family:'DM Mono',monospace;font-weight:500}
+.amt-out{color:#E57373;font-family:'DM Mono',monospace;font-weight:500}
+/* RECONCILE */
+.reconcile-result{font-size:13px;padding:12px 16px;border-radius:6px;margin-top:10px;display:none}
+.reconcile-ok{background:var(--green-bg);border:1px solid rgba(46,125,50,0.3);color:#81C784}
+.reconcile-warn{background:var(--amber-bg);border:1px solid rgba(186,117,23,0.3);color:#FFC107}
+/* SETTINGS */
+.settings-row{display:grid;grid-template-columns:1fr 80px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid rgba(255,255,255,0.04)}
+.settings-row:last-child{border-bottom:none}
+.settings-name{font-size:13px;color:var(--paper);display:flex;align-items:center;gap:8px}
+.dot-badge{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+.pct-total{font-size:13px;padding:10px 0;display:flex;justify-content:space-between;font-weight:500;border-top:1px solid var(--border);margin-top:4px}
+/* ALERT TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;border-radius:8px;font-size:13px;font-weight:500;z-index:999;display:none;max-width:320px;line-height:1.4}
+.toast-ok{background:#1b3a1c;border:1px solid rgba(46,125,50,0.4);color:#81C784}
+.toast-err{background:#3a1b1b;border:1px solid rgba(163,45,45,0.4);color:#E57373}
+/* SETUP SCREEN */
+.setup{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+.setup-card{background:rgba(0,0,0,0.5);border:1px solid var(--border);border-radius:12px;padding:40px;max-width:480px;width:100%}
+.setup-logo{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:0.06em;color:var(--paper);margin-bottom:4px}
+.setup-logo span{color:var(--gold)}
+.setup-sub{font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.6}
+.setup-section{font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;margin-top:20px}
+.setup-hint{font-size:12px;color:var(--muted);margin-top:6px;line-height:1.5}
+/* EMPTY */
+.empty{text-align:center;padding:48px 24px;color:var(--muted);font-size:14px}
+.empty-icon{font-size:32px;margin-bottom:10px;opacity:0.4}
+/* MOBILE */
+@media(max-width:700px){
+  .app{grid-template-columns:1fr}
+  .sidebar{position:fixed;bottom:0;top:auto;left:0;right:0;height:60px;flex-direction:row;align-items:center;justify-content:space-around;padding:0;border-right:none;border-top:1px solid var(--border);z-index:100;overflow:hidden}
+  .sidebar-logo,.nav-section,.sidebar-footer{display:none}
+  .nav-item{flex-direction:column;gap:3px;padding:8px 12px;font-size:10px;border-left:none;border-top:2px solid transparent}
+  .nav-item.active{border-left-color:transparent;border-top-color:var(--gold)}
+  .nav-icon{font-size:18px}
+  .main{padding-bottom:72px}
+  .page{padding:20px 16px}
+  .form-grid,.form-grid-3{grid-template-columns:1fr}
+  .pots-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
+  .metrics{grid-template-columns:1fr 1fr}
+  .toast{bottom:76px;right:12px;left:12px}
+  .ledger-table th:nth-child(3),.ledger-table td:nth-child(3){display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- SETUP SCREEN -->
+<div id="setup-screen" class="setup">
+  <div class="setup-card">
+    <div class="setup-logo">POT <span>ACCOUNTS</span></div>
+    <p class="setup-sub">Shared accounting for your team. Everyone sees the same live data. Setup takes 2 minutes.</p>
+
+    <div class="setup-section">Step 1 — Get a free JSONBin API key</div>
+    <p class="setup-hint">
+      Go to <a href="https://jsonbin.io" target="_blank" style="color:var(--gold);">jsonbin.io</a>, create a free account, then go to <strong>API Keys</strong> and copy your Master Key.
+    </p>
+    <div class="form-group" style="margin-top:10px;">
+      <label class="form-label">JSONBin Master Key</label>
+      <input type="password" id="setup-key" placeholder="$2b$10$...">
+    </div>
+
+    <div class="setup-section" style="margin-top:20px;">Step 2 — Bin ID</div>
+    <p class="setup-hint">If you're the <strong>first person setting up</strong>, leave this blank and we'll create a new bin. If someone else already set it up, paste their Bin ID here.</p>
+    <div class="form-group" style="margin-top:10px;">
+      <label class="form-label">Bin ID (existing team) — optional</label>
+      <input type="text" id="setup-bin" placeholder="64abc123def456...">
+    </div>
+
+    <div id="setup-error" style="display:none;margin-top:12px;font-size:12px;color:#E57373;padding:10px;background:var(--red-bg);border-radius:6px;border:1px solid rgba(163,45,45,0.3);"></div>
+
+    <button class="btn btn-primary" style="width:100%;margin-top:20px;justify-content:center;" onclick="setupConnect()">
+      <span id="setup-btn-text">Connect &amp; get started</span>
+    </button>
+    <p style="font-size:11px;color:var(--muted);margin-top:12px;text-align:center;">Your API key is stored only in this browser. Share the Bin ID with teammates so they can connect.</p>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="app" style="display:none">
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <h1>POT ACCOUNTS</h1>
+      <p>Team finance</p>
+    </div>
+    <div class="nav-section">Main</div>
+    <div class="nav-item active" onclick="nav('overview')"><span class="nav-icon">◈</span> Overview</div>
+    <div class="nav-item" onclick="nav('income')"><span class="nav-icon">↑</span> Add income</div>
+    <div class="nav-item" onclick="nav('expense')"><span class="nav-icon">↓</span> Add expense</div>
+    <div class="nav-item" onclick="nav('ledger')"><span class="nav-icon">≡</span> Ledger</div>
+    <div class="nav-section">Admin</div>
+    <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙</span> Settings</div>
+    <div class="sidebar-footer">
+      <div class="sync-status">
+        <div class="sync-dot" id="sync-dot"></div>
+        <span id="sync-label">Connecting…</span>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;">Bin ID: <span id="bin-id-display" style="font-family:'DM Mono',monospace;font-size:10px;"></span></div>
+    </div>
+  </nav>
+
+  <main class="main">
+
+    <!-- OVERVIEW -->
+    <div id="page-overview" class="page active">
+      <div class="page-header">
+        <div class="page-title">Overview</div>
+        <div class="page-sub" id="overview-sub">Loading…</div>
+      </div>
+      <div class="pots-grid" id="pots-grid"></div>
+      <div class="metrics" id="metrics-row"></div>
+      <div class="card">
+        <div class="card-label">Bank reconciliation</div>
+        <div class="form-grid" style="margin-bottom:0;">
+          <div class="form-group">
+            <label class="form-label">Your actual bank balance</label>
+            <input type="number" id="bank-actual" placeholder="0.00" step="0.01" oninput="reconcile()">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <div id="reconcile-result" class="reconcile-result" style="width:100%;display:flex;align-items:center;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- INCOME -->
+    <div id="page-income" class="page">
+      <div class="page-header">
+        <div class="page-title">Add income</div>
+        <div class="page-sub">Revenue is split across all pots automatically</div>
+      </div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Total revenue</label>
+            <input type="number" id="inc-amount" placeholder="0.00" step="0.01" oninput="previewDist()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="inc-date">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Note</label>
+          <input type="text" id="inc-note" placeholder="e.g. Week 22 — pack sales + marketplace fees">
+        </div>
+        <div id="dist-preview" class="dist-preview" style="display:none;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:8px;">Distribution</div>
+          <div id="dist-rows"></div>
+        </div>
+        <div style="margin-top:14px;display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="addIncome()">Distribute to pots</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('inc-amount').value='';document.getElementById('inc-note').value='';document.getElementById('dist-preview').style.display='none'">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPENSE -->
+    <div id="page-expense" class="page">
+      <div class="page-header">
+        <div class="page-title">Add expense</div>
+        <div class="page-sub">Deduct a spend from the relevant pot</div>
+      </div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" id="exp-amount" placeholder="0.00" step="0.01">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="exp-date">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Deduct from pot</label>
+            <select id="exp-pot"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <input type="text" id="exp-note" placeholder="e.g. Legal retainer — May">
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="addExpense()">Deduct from pot</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('exp-amount').value='';document.getElementById('exp-note').value=''">Clear</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LEDGER -->
+    <div id="page-ledger" class="page">
+      <div class="page-header">
+        <div class="page-title">Ledger</div>
+        <div class="page-sub">Full transaction history</div>
+      </div>
+      <div class="ledger-filters">
+        <select id="f-pot" onchange="renderLedger()">
+          <option value="all">All pots</option>
+        </select>
+        <select id="f-type" onchange="renderLedger()">
+          <option value="all">All types</option>
+          <option value="income">Income only</option>
+          <option value="expense">Expenses only</option>
+        </select>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Description</th>
+              <th>Pot</th>
+              <th>Amount</th>
+              <th>Type</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ledger-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="page-header">
+        <div class="page-title">Settings</div>
+        <div class="page-sub">Manage allocations, currency, and connection</div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Pot allocations — applies to future income only</div>
+        <div id="settings-pots"></div>
+        <div class="pct-total">
+          <span>Total</span>
+          <span id="settings-total">100%</span>
+        </div>
+        <div style="display:flex;gap:10px;margin-top:14px;">
+          <button class="btn btn-primary" onclick="saveAllocations()">Save allocations</button>
+          <button class="btn btn-ghost" onclick="resetAllocations()">Reset defaults</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Currency symbol</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <div class="form-group" style="width:80px;">
+            <input type="text" id="currency-input" value="$" style="text-align:center;font-size:18px;">
+          </div>
+          <button class="btn btn-primary" onclick="saveCurrency()">Save</button>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom:16px;">
+        <div class="card-label">Your Bin ID — share this with teammates</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;">
+          <input type="text" id="bin-id-copy" readonly style="font-family:'DM Mono',monospace;font-size:12px;flex:1;">
+          <button class="btn btn-ghost" onclick="copyBinId()">Copy</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label" style="color:#E57373;">Danger zone</div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:14px;">This will permanently delete all pot balances and transactions for the entire team. Cannot be undone.</p>
+        <button class="btn btn-danger" onclick="resetAll()">Reset all team data</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const POT_DEFAULTS=[
+  {key:'tax',   name:'Tax provision',     pct:10,color:'#5B9BD5'},
+  {key:'eng',   name:'Engineering/staff', pct:20,color:'#8B1A2E'},
+  {key:'prize', name:'Prize pool seed',   pct:35,color:'#A8956A'},
+  {key:'tourn', name:'Weekly winner',     pct:5, color:'#C4A95A'},
+  {key:'art',   name:'Marketing',         pct:13,color:'#6B1F2A'},
+  {key:'subs',  name:'Subscriptions',     pct:2, color:'#2A3A2A'},
+  {key:'legal', name:'Legal & ops',       pct:10,color:'#444444'},
+  {key:'events',name:'Events',            pct:1, color:'#3A2A4A'},
+  {key:'treas', name:'Treasury',          pct:14,color:'#1C1C1A'},
+];
+
+const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$'};
+
+let S=JSON.parse(JSON.stringify(EMPTY_STATE));
+let API_KEY='';
+let BIN_ID='';
+let syncing=false;
+
+const JSONBIN_BASE='https://api.jsonbin.io/v3';
+
+function setSyncStatus(status,msg){
+  const dot=document.getElementById('sync-dot');
+  const lbl=document.getElementById('sync-label');
+  dot.className='sync-dot '+(status==='ok'?'ok':status==='err'?'err':'loading');
+  lbl.textContent=msg;
+}
+
+async function apiFetch(path,method='GET',body=null){
+  const opts={method,headers:{'X-Master-Key':API_KEY,'Content-Type':'application/json','X-Bin-Versioning':'false'}};
+  if(body)opts.body=JSON.stringify(body);
+  const r=await fetch(JSONBIN_BASE+path,opts);
+  if(!r.ok)throw new Error('API error '+r.status);
+  return r.json();
+}
+
+async function loadFromBin(){
+  setSyncStatus('loading','Syncing…');
+  try{
+    const r=await apiFetch('/b/'+BIN_ID+'/latest');
+    S=r.record||JSON.parse(JSON.stringify(EMPTY_STATE));
+    if(!S.allocations)S.allocations=POT_DEFAULTS.map(p=>({...p}));
+    if(!S.pots)S.pots={};
+    if(!S.transactions)S.transactions=[];
+    if(!S.currency)S.currency='$';
+    setSyncStatus('ok','Synced');
+    render();
+  }catch(e){
+    setSyncStatus('err','Sync failed');
+    toast('Could not load data from server. Check connection.',false);
+  }
+}
+
+async function saveToBin(){
+  if(syncing)return;
+  syncing=true;
+  setSyncStatus('loading','Saving…');
+  try{
+    await apiFetch('/b/'+BIN_ID,'PUT',S);
+    setSyncStatus('ok','Saved');
+  }catch(e){
+    setSyncStatus('err','Save failed');
+    toast('Could not save. Check your connection.',false);
+  }
+  syncing=false;
+}
+
+async function setupConnect(){
+  const key=document.getElementById('setup-key').value.trim();
+  const bin=document.getElementById('setup-bin').value.trim();
+  const errEl=document.getElementById('setup-error');
+  const btnTxt=document.getElementById('setup-btn-text');
+  if(!key){errEl.textContent='Please enter your JSONBin Master Key.';errEl.style.display='block';return;}
+  API_KEY=key;
+  errEl.style.display='none';
+  btnTxt.textContent='Connecting…';
+  try{
+    if(bin){
+      BIN_ID=bin;
+      const r=await apiFetch('/b/'+BIN_ID+'/latest');
+      S=r.record||JSON.parse(JSON.stringify(EMPTY_STATE));
+    }else{
+      const r=await apiFetch('/b','POST',JSON.parse(JSON.stringify(EMPTY_STATE)));
+      BIN_ID=r.metadata.id;
+    }
+    if(!S.allocations)S.allocations=POT_DEFAULTS.map(p=>({...p}));
+    if(!S.pots)S.pots={};
+    if(!S.transactions)S.transactions=[];
+    if(!S.currency)S.currency='$';
+    localStorage.setItem('pa-key',API_KEY);
+    localStorage.setItem('pa-bin',BIN_ID);
+    launchApp();
+  }catch(e){
+    errEl.textContent='Connection failed. Check your API key and Bin ID, then try again.';
+    errEl.style.display='block';
+    btnTxt.textContent='Connect & get started';
+  }
+}
+
+function launchApp(){
+  document.getElementById('setup-screen').style.display='none';
+  document.getElementById('app').style.display='grid';
+  document.getElementById('bin-id-display').textContent=BIN_ID.slice(0,8)+'…';
+  document.getElementById('bin-id-copy').value=BIN_ID;
+  setTodayDates();
+  render();
+  setSyncStatus('ok','Connected');
+  setInterval(loadFromBin,30000);
+}
+
+function fmt(n){
+  const sym=S.currency||'$';
+  return sym+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtS(n){return(n<0?'-':'')+fmt(n);}
+
+function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36);}
+
+function pot(key){return S.pots[key]||0;}
+
+function render(){
+  renderPots();renderMetrics();renderExpPots();renderLedger();renderSettings();
+  document.getElementById('overview-sub').textContent='Last updated: '+(S.lastUpdated?new Date(S.lastUpdated).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'never');
+  document.getElementById('currency-input').value=S.currency||'$';
+  document.getElementById('bin-id-copy').value=BIN_ID;
+  reconcile();
+}
+
+function renderPots(){
+  document.getElementById('pots-grid').innerHTML=S.allocations.map(p=>{
+    const b=pot(p.key);
+    return`<div class="pot-card" style="--pot-color:${p.color}">
+      <div class="pot-name">${p.name}</div>
+      <div class="pot-balance${b<0?' neg':''}">${fmtS(b)}</div>
+      <div class="pot-alloc">${p.pct}% allocation</div>
+    </div>`;
+  }).join('');
+}
+
+function renderMetrics(){
+  const total=S.allocations.reduce((s,p)=>s+pot(p.key),0);
+  const totalIn=S.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
+  const totalOut=S.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
+  document.getElementById('metrics-row').innerHTML=`
+    <div class="metric"><div class="metric-label">Total in pots</div><div class="metric-val">${fmtS(total)}</div></div>
+    <div class="metric"><div class="metric-label">Total revenue logged</div><div class="metric-val">${fmt(totalIn)}</div></div>
+    <div class="metric"><div class="metric-label">Total expenses logged</div><div class="metric-val">${fmt(totalOut)}</div></div>
+    <div class="metric"><div class="metric-label">Transactions</div><div class="metric-val">${S.transactions.length}</div></div>`;
+}
+
+function renderExpPots(){
+  document.getElementById('exp-pot').innerHTML=S.allocations.map(p=>
+    `<option value="${p.key}">${p.name} (${fmtS(pot(p.key))})</option>`).join('');
+}
+
+function renderLedger(){
+  const fp=document.getElementById('f-pot').value;
+  const ft=document.getElementById('f-type').value;
+  const fSel=document.getElementById('f-pot');
+  const cur=fSel.value;
+  fSel.innerHTML='<option value="all">All pots</option>'+S.allocations.map(p=>`<option value="${p.key}"${cur===p.key?' selected':''}>${p.name}</option>`).join('');
+  let txns=[...S.transactions].reverse();
+  if(fp!=='all')txns=txns.filter(t=>t.pot===fp||(t.type==='income'&&t.pots&&t.pots[fp]!==undefined));
+  if(ft!=='all')txns=txns.filter(t=>t.type===ft);
+  const tbody=document.getElementById('ledger-body');
+  if(!txns.length){tbody.innerHTML='<tr><td colspan="6"><div class="empty"><div class="empty-icon">≡</div>No transactions yet</div></td></tr>';return;}
+  tbody.innerHTML=txns.map(t=>{
+    const isIn=t.type==='income';
+    const potName=isIn?'All pots':(S.allocations.find(p=>p.key===t.pot)?.name||t.pot);
+    const d=new Date(t.date+'T12:00:00');
+    const ds=d.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+    return`<tr>
+      <td style="color:var(--muted);white-space:nowrap">${ds}</td>
+      <td>${t.note||'—'}</td>
+      <td style="color:var(--muted);font-size:12px">${potName}</td>
+      <td class="${isIn?'amt-in':'amt-out'}">${isIn?'+':'-'}${fmt(t.amount)}</td>
+      <td><span class="badge ${isIn?'badge-in':'badge-out'}">${isIn?'Income':'Expense'}</span></td>
+      <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteTxn('${t.id}')">Remove</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSettings(){
+  document.getElementById('settings-pots').innerHTML=S.allocations.map(p=>`
+    <div class="settings-row">
+      <div class="settings-name"><div class="dot-badge" style="background:${p.color}"></div>${p.name}</div>
+      <input type="number" min="0" max="100" step="1" value="${p.pct}" id="sp-${p.key}" oninput="updateSettingsTotal()" style="text-align:right">
+    </div>`).join('');
+  updateSettingsTotal();
+}
+
+function updateSettingsTotal(){
+  const t=S.allocations.reduce((s,p)=>s+(parseFloat(document.getElementById('sp-'+p.key)?.value)||0),0);
+  const el=document.getElementById('settings-total');
+  el.textContent=t+'%';
+  el.style.color=t===100?'var(--paper)':'#FFC107';
+}
+
+function reconcile(){
+  const total=S.allocations.reduce((s,p)=>s+pot(p.key),0);
+  const actual=parseFloat(document.getElementById('bank-actual').value);
+  const el=document.getElementById('reconcile-result');
+  if(isNaN(actual)){el.style.display='none';return;}
+  const diff=actual-total;
+  el.style.display='flex';
+  if(Math.abs(diff)<0.02){
+    el.className='reconcile-result reconcile-ok';
+    el.textContent='✓ Bank matches pots exactly';
+  }else{
+    el.className='reconcile-result reconcile-warn';
+    el.textContent='Difference: '+(diff>0?'+':'')+fmtS(diff)+' vs pots total of '+fmtS(total);
+  }
+}
+
+function previewDist(){
+  const amt=parseFloat(document.getElementById('inc-amount').value);
+  const p=document.getElementById('dist-preview');
+  const rows=document.getElementById('dist-rows');
+  if(!amt||amt<=0){p.style.display='none';return;}
+  p.style.display='block';
+  rows.innerHTML=S.allocations.map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(amt*a.pct/100)}</span></div>`).join('');
+}
+
+function addIncome(){
+  const amount=parseFloat(document.getElementById('inc-amount').value);
+  const date=document.getElementById('inc-date').value;
+  const note=document.getElementById('inc-note').value||'Revenue';
+  if(!amount||amount<=0||!date){toast('Enter a valid amount and date.',false);return;}
+  const potsSnap={};
+  S.allocations.forEach(p=>{
+    const share=parseFloat((amount*p.pct/100).toFixed(2));
+    S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
+    potsSnap[p.key]=share;
+  });
+  S.transactions.push({id:uid(),type:'income',amount,date,note,pots:potsSnap});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();
+  document.getElementById('inc-amount').value='';
+  document.getElementById('inc-note').value='';
+  document.getElementById('dist-preview').style.display='none';
+  toast('Revenue distributed across all pots.');
+  nav('overview');
+}
+
+function addExpense(){
+  const amount=parseFloat(document.getElementById('exp-amount').value);
+  const date=document.getElementById('exp-date').value;
+  const potKey=document.getElementById('exp-pot').value;
+  const note=document.getElementById('exp-note').value||'Expense';
+  if(!amount||amount<=0||!date){toast('Enter a valid amount and date.',false);return;}
+  S.pots[potKey]=parseFloat(((S.pots[potKey]||0)-amount).toFixed(2));
+  S.transactions.push({id:uid(),type:'expense',amount,date,note,pot:potKey});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();
+  document.getElementById('exp-amount').value='';
+  document.getElementById('exp-note').value='';
+  toast('Expense deducted from '+(S.allocations.find(p=>p.key===potKey)?.name||potKey)+'.');
+  nav('overview');
+}
+
+function deleteTxn(id){
+  if(!confirm('Remove this transaction and reverse the pot change?'))return;
+  const t=S.transactions.find(x=>x.id===id);
+  if(!t)return;
+  if(t.type==='income'){
+    S.allocations.forEach(p=>{const sh=t.pots?.[p.key]||0;S.pots[p.key]=parseFloat(((S.pots[p.key]||0)-sh).toFixed(2));});
+  }else{
+    S.pots[t.pot]=parseFloat(((S.pots[t.pot]||0)+t.amount).toFixed(2));
+  }
+  S.transactions=S.transactions.filter(x=>x.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();
+  toast('Transaction removed and pots reversed.');
+}
+
+function saveAllocations(){
+  let total=0;
+  S.allocations.forEach(p=>{
+    const v=parseFloat(document.getElementById('sp-'+p.key)?.value)||0;
+    p.pct=v;total+=v;
+  });
+  if(total!==100){toast('Allocations must total 100%. Currently '+total+'%.',false);return;}
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();
+  toast('Allocations saved.');
+}
+
+function resetAllocations(){
+  POT_DEFAULTS.forEach(d=>{const el=document.getElementById('sp-'+d.key);if(el)el.value=d.pct;});
+  updateSettingsTotal();
+}
+
+function saveCurrency(){
+  S.currency=document.getElementById('currency-input').value||'$';
+  saveToBin();render();
+  toast('Currency updated.');
+}
+
+function copyBinId(){
+  navigator.clipboard.writeText(BIN_ID).then(()=>toast('Bin ID copied to clipboard.'));
+}
+
+function resetAll(){
+  if(!confirm('DELETE all team data? This cannot be undone.'))return;
+  if(!confirm('Are you absolutely sure?'))return;
+  S=JSON.parse(JSON.stringify(EMPTY_STATE));
+  S.allocations=POT_DEFAULTS.map(p=>({...p}));
+  saveToBin();render();
+  toast('All data reset.');
+}
+
+function nav(name){
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  const pages=['overview','income','expense','ledger','settings'];
+  const idx=pages.indexOf(name);
+  document.querySelectorAll('.nav-item')[idx].classList.add('active');
+  document.getElementById('page-'+name).classList.add('active');
+  if(name==='expense')renderExpPots();
+  if(name==='income'||name==='expense')setTodayDates();
+  if(name==='ledger')renderLedger();
+}
+
+function setTodayDates(){
+  const today=new Date().toISOString().split('T')[0];
+  ['inc-date','exp-date'].forEach(id=>{const el=document.getElementById(id);if(el&&!el.value)el.value=today;});
+}
+
+function toast(msg,ok=true){
+  const el=document.getElementById('toast');
+  el.textContent=msg;
+  el.className='toast '+(ok?'toast-ok':'toast-err');
+  el.style.display='block';
+  clearTimeout(el._t);
+  el._t=setTimeout(()=>el.style.display='none',3500);
+}
+
+// AUTO-LOGIN
+(function(){
+  const k=localStorage.getItem('pa-key');
+  const b=localStorage.getItem('pa-bin');
+  if(k&&b){API_KEY=k;BIN_ID=b;launchApp();loadFromBin();}
+})();
+</script>
+</body>
+</html>
