@@ -183,6 +183,8 @@ select option{background:#1a1816;color:var(--paper)}
     <div class="nav-item" onclick="nav('ledger')"><span class="nav-icon">≡</span> Ledger</div>
     <div class="nav-item" onclick="nav('transfer')"><span class="nav-icon">⇄</span> Transfer</div>
     <div class="nav-section">Admin</div>
+    <div class="nav-item" onclick="nav('subscriptions')"><span class="nav-icon">↻</span> Subscriptions</div>
+    <div class="nav-item" onclick="nav('owed')"><span class="nav-icon">$</span> Money owed</div>
     <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙</span> Settings</div>
     <div class="sidebar-footer">
       <div class="sync-status">
@@ -379,6 +381,159 @@ select option{background:#1a1816;color:var(--paper)}
       <div class="card" style="margin-top:8px;">
         <div class="card-label">Recent transfers</div>
         <div id="transfer-history"></div>
+      </div>
+    </div>
+
+    <!-- SUBSCRIPTIONS -->
+    <div id="page-subscriptions" class="page">
+      <div class="page-header">
+        <div class="page-title">Subscriptions</div>
+        <div class="page-sub">Recurring monthly costs — for reference and budgeting</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Add a subscription</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Service name</label>
+            <input type="text" id="sub-name" placeholder="e.g. AWS, Figma, Discord Nitro">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monthly cost</label>
+            <input type="number" id="sub-cost" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="sub-category">
+              <option value="Engineering">Engineering</option>
+              <option value="Design">Design</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Operations">Operations</option>
+              <option value="Legal">Legal</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Paid from pot</label>
+            <select id="sub-pot"></select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Notes (optional)</label>
+          <input type="text" id="sub-notes" placeholder="e.g. Team plan, 5 seats">
+        </div>
+        <button class="btn btn-primary" onclick="addSubscription()">Add subscription</button>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:2px;">Monthly subscriptions</div>
+        </div>
+        <table class="ledger-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Category</th>
+              <th>Pot</th>
+              <th style="text-align:right;">Monthly</th>
+              <th style="text-align:right;">Annual</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="sub-body"></tbody>
+          <tfoot>
+            <tr id="sub-totals" style="border-top:1px solid var(--border);">
+              <td colspan="3" style="padding:12px 10px;font-size:13px;font-weight:500;color:var(--paper);">Total</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--gold);" id="sub-total-mo">—</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);" id="sub-total-yr">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- MONEY OWED -->
+    <div id="page-owed" class="page">
+      <div class="page-header">
+        <div class="page-title">Money owed</div>
+        <div class="page-sub">Track what the company owes founders and team members for out-of-pocket costs</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Log an out-of-pocket expense</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Who paid</label>
+            <input type="text" id="owed-who" placeholder="e.g. Jon, Tim">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" id="owed-amount" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Date paid</label>
+            <input type="date" id="owed-date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="owed-category">
+              <option value="Software">Software</option>
+              <option value="Hardware">Hardware</option>
+              <option value="Legal">Legal</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Design">Design</option>
+              <option value="Travel">Travel</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Description</label>
+          <input type="text" id="owed-desc" placeholder="e.g. Figma annual plan, domain registration">
+        </div>
+        <button class="btn btn-primary" onclick="addOwed()">Add to owed list</button>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:16px 20px 0;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:12px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">Outstanding — to be repaid</div>
+          <select id="owed-filter" onchange="renderOwed()" style="width:auto;font-size:12px;">
+            <option value="all">Everyone</option>
+          </select>
+        </div>
+        <table class="ledger-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Who</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th style="text-align:right;">Amount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="owed-body"></tbody>
+          <tfoot>
+            <tr style="border-top:1px solid var(--border);">
+              <td colspan="4" style="padding:12px 10px;font-size:13px;font-weight:500;color:var(--paper);">Total outstanding</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:#E57373;" id="owed-total">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;margin-top:0;">
+        <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">Repaid</div>
+        </div>
+        <table class="ledger-table" style="width:100%;">
+          <thead><tr><th>Date</th><th>Who</th><th>Description</th><th>Repaid on</th><th style="text-align:right;">Amount</th><th></th></tr></thead>
+          <tbody id="owed-repaid-body"></tbody>
+        </table>
       </div>
     </div>
 
@@ -829,7 +984,7 @@ function resetAll(){
 function nav(name){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
-  const pages=['overview','income','expense','ledger','transfer','settings'];
+  const pages=['overview','income','expense','ledger','transfer','subscriptions','owed','settings'];
   const idx=pages.indexOf(name);
   document.querySelectorAll('.nav-item')[idx].classList.add('active');
   document.getElementById('page-'+name).classList.add('active');
@@ -838,6 +993,8 @@ function nav(name){
   if(name==='income'||name==='expense')setTodayDates();
   if(name==='income'){incomeMode='all';}
   if(name==='ledger')renderLedger();
+  if(name==='subscriptions'){renderSubPots();renderSubscriptions();setTodayDates();}
+  if(name==='owed'){renderOwed();setTodayDates();}
 }
 
 function setTodayDates(){
@@ -924,6 +1081,156 @@ function renderTransferHistory(){
       </tr>`;
     }).join('')}</tbody>
   </table>`;
+}
+
+// SUBSCRIPTIONS
+function renderSubPots(){
+  const sel=document.getElementById('sub-pot');
+  if(!sel)return;
+  sel.innerHTML=S.allocations.map(p=>`<option value="${p.key}">${p.name}</option>`).join('');
+  const subsIdx=S.allocations.findIndex(p=>p.key==='subs');
+  if(subsIdx>=0)sel.selectedIndex=subsIdx;
+}
+
+function addSubscription(){
+  const name=document.getElementById('sub-name').value.trim();
+  const cost=parseFloat(document.getElementById('sub-cost').value);
+  const category=document.getElementById('sub-category').value;
+  const pot=document.getElementById('sub-pot').value;
+  const notes=document.getElementById('sub-notes').value.trim();
+  if(!name||!cost||cost<=0){toast('Enter a name and monthly cost.',false);return;}
+  if(!S.subscriptions)S.subscriptions=[];
+  S.subscriptions.push({id:uid(),name,cost,category,pot,notes});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderSubscriptions();
+  document.getElementById('sub-name').value='';
+  document.getElementById('sub-cost').value='';
+  document.getElementById('sub-notes').value='';
+  toast('Subscription added.');
+}
+
+function deleteSubscription(id){
+  if(!confirm('Remove this subscription?'))return;
+  S.subscriptions=(S.subscriptions||[]).filter(s=>s.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderSubscriptions();
+  toast('Subscription removed.');
+}
+
+function renderSubscriptions(){
+  if(!S.subscriptions)S.subscriptions=[];
+  const tbody=document.getElementById('sub-body');
+  if(!tbody)return;
+  if(!S.subscriptions.length){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:24px">No subscriptions yet</div></td></tr>';
+    document.getElementById('sub-total-mo').textContent='—';
+    document.getElementById('sub-total-yr').textContent='—';
+    return;
+  }
+  tbody.innerHTML=S.subscriptions.map(s=>{
+    const potName=S.allocations.find(p=>p.key===s.pot)?.name||s.pot;
+    return`<tr>
+      <td><div style="font-weight:500;color:var(--paper)">${s.name}</div>${s.notes?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${s.notes}</div>`:''}</td>
+      <td><span class="badge" style="background:rgba(168,149,106,0.12);color:var(--gold)">${s.category}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${potName}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--paper)">${fmt(s.cost)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${fmt(s.cost*12)}</td>
+      <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteSubscription('${s.id}')">Remove</button></td>
+    </tr>`;
+  }).join('');
+  const totalMo=S.subscriptions.reduce((s,sub)=>s+sub.cost,0);
+  document.getElementById('sub-total-mo').textContent=fmt(totalMo);
+  document.getElementById('sub-total-yr').textContent=fmt(totalMo*12)+'/yr';
+}
+
+// MONEY OWED
+function addOwed(){
+  const who=document.getElementById('owed-who').value.trim();
+  const amount=parseFloat(document.getElementById('owed-amount').value);
+  const date=document.getElementById('owed-date').value;
+  const category=document.getElementById('owed-category').value;
+  const desc=document.getElementById('owed-desc').value.trim();
+  if(!who||!amount||amount<=0||!date){toast('Please fill in all fields.',false);return;}
+  if(!S.owed)S.owed=[];
+  S.owed.push({id:uid(),who,amount,date,category,desc,repaid:false,repaidDate:null});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderOwed();
+  document.getElementById('owed-who').value='';
+  document.getElementById('owed-amount').value='';
+  document.getElementById('owed-desc').value='';
+  toast('Added to money owed.');
+}
+
+function markRepaid(id){
+  if(!S.owed)return;
+  const item=S.owed.find(o=>o.id===id);
+  if(!item)return;
+  item.repaid=true;
+  item.repaidDate=new Date().toISOString().split('T')[0];
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderOwed();
+  toast('Marked as repaid.');
+}
+
+function deleteOwed(id){
+  if(!confirm('Remove this entry?'))return;
+  S.owed=(S.owed||[]).filter(o=>o.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderOwed();
+  toast('Entry removed.');
+}
+
+function renderOwed(){
+  if(!S.owed)S.owed=[];
+  const filterSel=document.getElementById('owed-filter');
+  if(!filterSel)return;
+  const filterVal=filterSel.value;
+  const people=[...new Set(S.owed.map(o=>o.who))];
+  const curFilter=filterSel.value;
+  filterSel.innerHTML='<option value="all">Everyone</option>'+people.map(p=>`<option value="${p}"${curFilter===p?' selected':''}>${p}</option>`).join('');
+
+  const outstanding=S.owed.filter(o=>!o.repaid&&(filterVal==='all'||o.who===filterVal));
+  const repaid=S.owed.filter(o=>o.repaid&&(filterVal==='all'||o.who===filterVal));
+
+  const tbody=document.getElementById('owed-body');
+  if(!outstanding.length){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:20px">Nothing outstanding 🎉</div></td></tr>';
+  }else{
+    tbody.innerHTML=outstanding.map(o=>{
+      const d=new Date(o.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+      return`<tr>
+        <td style="color:var(--muted);white-space:nowrap">${d}</td>
+        <td style="font-weight:500;color:var(--paper)">${o.who}</td>
+        <td>${o.desc||'—'}</td>
+        <td><span class="badge" style="background:var(--red-bg);color:#E57373">${o.category}</span></td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:#E57373;font-weight:500">${fmt(o.amount)}</td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" style="color:#81C784;border-color:rgba(46,125,50,0.3)" onclick="markRepaid('${o.id}')">Repaid</button>
+          <button class="btn btn-ghost btn-sm btn-danger" onclick="deleteOwed('${o.id}')">Remove</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  const total=outstanding.reduce((s,o)=>s+o.amount,0);
+  document.getElementById('owed-total').textContent=outstanding.length?fmt(total):'—';
+
+  const repaidBody=document.getElementById('owed-repaid-body');
+  if(!repaid.length){
+    repaidBody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:16px">No repayments yet</div></td></tr>';
+  }else{
+    repaidBody.innerHTML=repaid.map(o=>{
+      const d=new Date(o.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+      const rd=o.repaidDate?new Date(o.repaidDate+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—';
+      return`<tr style="opacity:0.6">
+        <td style="color:var(--muted);white-space:nowrap">${d}</td>
+        <td>${o.who}</td>
+        <td>${o.desc||'—'}</td>
+        <td style="color:var(--muted)">${rd}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${fmt(o.amount)}</td>
+        <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteOwed('${o.id}')">Remove</button></td>
+      </tr>`;
+    }).join('');
+  }
 }
 
 // AUTO-LOGIN
