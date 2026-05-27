@@ -544,11 +544,23 @@ select option{background:#1a1816;color:var(--paper)}
         <div class="page-sub">Manage allocations, currency, and connection</div>
       </div>
       <div class="card" style="margin-bottom:16px;">
-        <div class="card-label">Pot allocations — applies to future income only</div>
+        <div class="card-label">Tax provision — deducted before any pot allocation</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:12px;">
+          <div class="dot-badge" style="background:#5B9BD5;width:8px;height:8px;border-radius:2px;flex-shrink:0;"></div>
+          <div style="flex:1;font-size:13px;color:var(--paper);">Tax provision <span style="font-size:11px;color:var(--muted);">(taken off gross revenue first)</span></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" min="0" max="50" step="1" id="sp-tax-pct" value="10" oninput="updateSettingsTotal()" style="width:60px;text-align:right;font-size:13px;">
+            <span style="font-size:13px;color:var(--muted);">%</span>
+          </div>
+        </div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Pot allocations — % of after-tax revenue. Must total 100%.</div>
         <div id="settings-pots"></div>
-        <div class="pct-total">
-          <span>Total</span>
-          <span id="settings-total">100%</span>
+        <div style="margin-top:10px;padding:10px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <button class="btn btn-ghost btn-sm" onclick="addNewPot()" style="color:var(--gold);border-color:rgba(168,149,106,0.3);">+ Add pot</button>
+          <div class="pct-total" style="border:none;margin:0;padding:0;">
+            <span style="font-size:13px;color:var(--muted);margin-right:8px;">Total</span>
+            <span id="settings-total">100%</span>
+          </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:14px;">
           <button class="btn btn-primary" onclick="saveAllocations()">Save allocations</button>
@@ -584,8 +596,8 @@ select option{background:#1a1816;color:var(--paper)}
 <div id="toast" class="toast"></div>
 
 <script>
+const TAX_DEFAULT=10;
 const POT_DEFAULTS=[
-  {key:'tax',   name:'Tax provision',     pct:10,color:'#5B9BD5'},
   {key:'eng',   name:'Engineering/staff', pct:20,color:'#8B1A2E'},
   {key:'prize', name:'Prize pool seed',   pct:35,color:'#A8956A'},
   {key:'tourn', name:'Weekly winner',     pct:5, color:'#C4A95A'},
@@ -596,7 +608,7 @@ const POT_DEFAULTS=[
   {key:'treas', name:'Treasury',          pct:14,color:'#1C1C1A'},
 ];
 
-const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$'};
+const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT};
 
 let S=JSON.parse(JSON.stringify(EMPTY_STATE));
 let API_KEY='';
@@ -713,7 +725,13 @@ function render(){
 }
 
 function renderPots(){
-  document.getElementById('pots-grid').innerHTML=S.allocations.map(p=>{
+  const taxBal=pot('tax');
+  const taxCard=`<div class="pot-card" style="--pot-color:#5B9BD5">
+    <div class="pot-name">Tax provision</div>
+    <div class="pot-balance${taxBal<0?' neg':''}">${fmtS(taxBal)}</div>
+    <div class="pot-alloc">${S.taxPct||TAX_DEFAULT}% off top</div>
+  </div>`;
+  const otherCards=S.allocations.filter(p=>p.key!=='tax').map(p=>{
     const b=pot(p.key);
     return`<div class="pot-card" style="--pot-color:${p.color}">
       <div class="pot-name">${p.name}</div>
@@ -721,10 +739,12 @@ function renderPots(){
       <div class="pot-alloc">${p.pct}% allocation</div>
     </div>`;
   }).join('');
+  document.getElementById('pots-grid').innerHTML=taxCard+otherCards;
 }
 
 function renderMetrics(){
-  const total=S.allocations.reduce((s,p)=>s+pot(p.key),0);
+  const allPotKeys=['tax',...S.allocations.filter(p=>p.key!=='tax').map(p=>p.key)];
+  const total=allPotKeys.reduce((s,k)=>s+pot(k),0);
   const totalIn=S.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
   const totalOut=S.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
   document.getElementById('metrics-row').innerHTML=`
@@ -735,7 +755,8 @@ function renderMetrics(){
 }
 
 function renderExpPots(){
-  document.getElementById('exp-pot').innerHTML=S.allocations.map(p=>
+  const taxOpt=`<option value="tax">Tax provision (${fmtS(pot('tax'))})</option>`;
+  document.getElementById('exp-pot').innerHTML=taxOpt+S.allocations.filter(p=>p.key!=='tax').map(p=>
     `<option value="${p.key}">${p.name} (${fmtS(pot(p.key))})</option>`).join('');
 }
 
@@ -767,23 +788,33 @@ function renderLedger(){
 }
 
 function renderSettings(){
-  document.getElementById('settings-pots').innerHTML=S.allocations.map(p=>`
-    <div class="settings-row">
-      <div class="settings-name"><div class="dot-badge" style="background:${p.color}"></div>${p.name}</div>
-      <input type="number" min="0" max="100" step="1" value="${p.pct}" id="sp-${p.key}" oninput="updateSettingsTotal()" style="text-align:right">
+  const taxPct=S.taxPct!==undefined?S.taxPct:TAX_DEFAULT;
+  const taxInput=document.getElementById('sp-tax-pct');
+  if(taxInput)taxInput.value=taxPct;
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
+  document.getElementById('settings-pots').innerHTML=allocs.map(p=>`
+    <div class="settings-row" style="grid-template-columns:1fr 110px 30px;">
+      <input type="text" value="${p.name}" id="sn-${p.key}" style="font-size:13px;color:var(--paper);background:transparent;border:1px solid transparent;padding:4px 6px;border-radius:4px;width:100%;" onfocus="this.style.borderColor='rgba(168,149,106,0.4)'" onblur="this.style.borderColor='transparent'">
+      <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+        <input type="number" min="0" max="100" step="1" value="${p.pct}" id="sp-${p.key}" oninput="updateSettingsTotal()" style="width:55px;text-align:right;font-size:13px;">
+        <span style="font-size:13px;color:var(--muted);">%</span>
+      </div>
+      <button onclick="deletePot('${p.key}')" style="background:transparent;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:0 0 0 4px;" title="Delete pot">×</button>
     </div>`).join('');
   updateSettingsTotal();
 }
 
 function updateSettingsTotal(){
-  const t=S.allocations.reduce((s,p)=>s+(parseFloat(document.getElementById('sp-'+p.key)?.value)||0),0);
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
+  const t=allocs.reduce((s,p)=>s+(parseFloat(document.getElementById('sp-'+p.key)?.value)||0),0);
   const el=document.getElementById('settings-total');
-  el.textContent=t+'%';
-  el.style.color=t===100?'var(--paper)':'#FFC107';
+  el.textContent=Math.round(t*10)/10+'%';
+  el.style.color=Math.abs(t-100)<0.1?'var(--paper)':'#FFC107';
 }
 
 function reconcile(){
-  const total=S.allocations.reduce((s,p)=>s+pot(p.key),0);
+  const allPotKeys=['tax',...S.allocations.filter(p=>p.key!=='tax').map(p=>p.key)];
+  const total=allPotKeys.reduce((s,k)=>s+pot(k),0);
   const actual=parseFloat(document.getElementById('bank-actual').value);
   const el=document.getElementById('reconcile-result');
   if(isNaN(actual)){el.style.display='none';return;}
@@ -840,8 +871,9 @@ function selectAllPots(val){
 }
 
 function getSelectedPots(){
-  if(incomeMode==='all')return S.allocations;
-  return S.allocations.filter(p=>{
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
+  if(incomeMode==='all')return allocs;
+  return allocs.filter(p=>{
     const el=document.getElementById('chk-'+p.key);
     return el&&el.checked;
   });
@@ -856,16 +888,23 @@ function previewDist(){
   const selected=getSelectedPots();
   if(!selected.length){p.style.display='none';return;}
   p.style.display='block';
+  const taxRate=(S.taxPct!==undefined?S.taxPct:TAX_DEFAULT)/100;
+  const taxAmt=parseFloat((amt*taxRate).toFixed(2));
+  const afterTax=parseFloat((amt-taxAmt).toFixed(2));
+  let header=`<div class="dist-row" style="border-bottom:1px solid rgba(168,149,106,0.2);padding-bottom:6px;margin-bottom:4px;">
+    <span style="color:#5B9BD5;">Tax provision (${S.taxPct||TAX_DEFAULT}%)</span><span style="color:#5B9BD5;">−${fmt(taxAmt)}</span></div>
+  <div class="dist-row" style="padding-bottom:6px;margin-bottom:4px;"><span style="color:var(--muted);">After-tax to distribute</span><span>${fmt(afterTax)}</span></div>`;
   if(incomeMode==='all'){
-    rows.innerHTML=S.allocations.map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(amt*a.pct/100)}</span></div>`).join('');
+    rows.innerHTML=header+S.allocations.filter(a=>a.key!=='tax').map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(afterTax*a.pct/100)}</span></div>`).join('');
     unallocEl.style.display='none';
   }else{
     const totalPct=selected.reduce((s,a)=>s+a.pct,0);
-    rows.innerHTML=selected.map(a=>{
-      const share=totalPct>0?parseFloat((amt*a.pct/totalPct).toFixed(2)):0;
+    rows.innerHTML=header+selected.map(a=>{
+      const share=totalPct>0?parseFloat((afterTax*a.pct/totalPct).toFixed(2)):0;
       return`<div class="dist-row"><span>${a.name} (${a.pct}% → ${totalPct>0?Math.round(a.pct/totalPct*100):0}% of selected)</span><span>+${fmt(share)}</span></div>`;
     }).join('');
-    const unselected=S.allocations.filter(a=>!selected.find(s=>s.key===a.key));
+    const allNonTax=S.allocations.filter(a=>a.key!=='tax');
+    const unselected=allNonTax.filter(a=>!selected.find(s=>s.key===a.key));
     if(unselected.length){
       unallocEl.style.display='block';
       unallocEl.textContent=`⚠ ${unselected.map(a=>a.name).join(', ')} will receive nothing from this income entry.`;
@@ -882,17 +921,24 @@ function addIncome(){
   if(!amount||amount<=0||!date){toast('Enter a valid amount and date.',false);return;}
   const selected=getSelectedPots();
   if(!selected.length){toast('Please select at least one pot.',false);return;}
+  const taxRate=(S.taxPct!==undefined?S.taxPct:TAX_DEFAULT)/100;
+  const taxAmt=parseFloat((amount*taxRate).toFixed(2));
+  const afterTax=parseFloat((amount-taxAmt).toFixed(2));
   const potsSnap={};
+  // Tax pot
+  S.pots['tax']=parseFloat(((S.pots['tax']||0)+taxAmt).toFixed(2));
+  potsSnap['tax']=taxAmt;
+  // Allocate after-tax to pots
   if(incomeMode==='all'){
-    S.allocations.forEach(p=>{
-      const share=parseFloat((amount*p.pct/100).toFixed(2));
+    S.allocations.filter(p=>p.key!=='tax').forEach(p=>{
+      const share=parseFloat((afterTax*p.pct/100).toFixed(2));
       S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
       potsSnap[p.key]=share;
     });
   }else{
     const totalPct=selected.reduce((s,a)=>s+a.pct,0);
     selected.forEach(p=>{
-      const share=totalPct>0?parseFloat((amount*p.pct/totalPct).toFixed(2)):0;
+      const share=totalPct>0?parseFloat((afterTax*p.pct/totalPct).toFixed(2)):0;
       S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
       potsSnap[p.key]=share;
     });
@@ -901,7 +947,7 @@ function addIncome(){
   S.lastUpdated=new Date().toISOString();
   saveToBin();render();
   clearIncome();
-  toast(incomeMode==='all'?'Revenue distributed across all pots.':'Revenue distributed across selected pots.');
+  toast(incomeMode==='all'?'Revenue distributed — tax deducted first.':'Revenue distributed across selected pots.');
   nav('overview');
 }
 
@@ -946,20 +992,44 @@ function deleteTxn(id){
 }
 
 function saveAllocations(){
+  const taxVal=parseFloat(document.getElementById('sp-tax-pct')?.value)||0;
+  S.taxPct=taxVal;
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
   let total=0;
-  S.allocations.forEach(p=>{
+  allocs.forEach(p=>{
     const v=parseFloat(document.getElementById('sp-'+p.key)?.value)||0;
-    p.pct=v;total+=v;
+    const n=document.getElementById('sn-'+p.key)?.value.trim()||p.name;
+    p.pct=v;p.name=n;total+=v;
   });
-  if(total!==100){toast('Allocations must total 100%. Currently '+total+'%.',false);return;}
+  if(Math.abs(total-100)>0.1){toast('Pot allocations must total 100%. Currently '+Math.round(total*10)/10+'%.',false);return;}
   S.lastUpdated=new Date().toISOString();
   saveToBin();render();
   toast('Allocations saved.');
 }
 
 function resetAllocations(){
-  POT_DEFAULTS.forEach(d=>{const el=document.getElementById('sp-'+d.key);if(el)el.value=d.pct;});
-  updateSettingsTotal();
+  if(!confirm('Reset all pots to defaults? Names and percentages will reset but balances are unchanged.'))return;
+  S.taxPct=TAX_DEFAULT;
+  S.allocations=POT_DEFAULTS.map(p=>({...p}));
+  renderSettings();
+  toast('Reset to defaults.');
+}
+
+function addNewPot(){
+  const key='pot_'+Math.random().toString(36).slice(2,8);
+  const colors=['#6B4E2A','#2A4A3A','#2A3A5A','#4A2A5A','#5A4A2A'];
+  const color=colors[S.allocations.length%colors.length];
+  S.allocations.push({key,name:'New pot',pct:0,color});
+  renderSettings();
+  const ni=document.getElementById('sn-'+key);
+  if(ni){ni.focus();ni.select();}
+}
+
+function deletePot(key){
+  if(!confirm('Delete this pot? Any balance will remain stored but unallocated.'))return;
+  S.allocations=S.allocations.filter(p=>p.key!==key);
+  renderSettings();
+  toast('Pot removed.');
 }
 
 function saveCurrency(){
@@ -1012,7 +1082,8 @@ function toast(msg,ok=true){
 }
 
 function renderTransferPots(){
-  const opts=S.allocations.map(p=>`<option value="${p.key}">${p.name} (${fmtS(pot(p.key))})</option>`).join('');
+  const taxOpt=`<option value="tax">Tax provision (${fmtS(pot('tax'))})</option>`;
+  const opts=taxOpt+S.allocations.filter(p=>p.key!=='tax').map(p=>`<option value="${p.key}">${p.name} (${fmtS(pot(p.key))})</option>`).join('');
   document.getElementById('tr-from').innerHTML=opts;
   document.getElementById('tr-to').innerHTML=opts;
   if(S.allocations.length>1)document.getElementById('tr-to').selectedIndex=1;
@@ -1087,7 +1158,7 @@ function renderTransferHistory(){
 function renderSubPots(){
   const sel=document.getElementById('sub-pot');
   if(!sel)return;
-  sel.innerHTML=S.allocations.map(p=>`<option value="${p.key}">${p.name}</option>`).join('');
+  sel.innerHTML=S.allocations.filter(p=>p.key!=='tax').map(p=>`<option value="${p.key}">${p.name}</option>`).join('');
   const subsIdx=S.allocations.findIndex(p=>p.key==='subs');
   if(subsIdx>=0)sel.selectedIndex=subsIdx;
 }
