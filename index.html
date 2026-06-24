@@ -190,6 +190,7 @@ select option{background:#1a1816;color:var(--paper)}
       <div class="sync-status">
         <div class="sync-dot" id="sync-dot"></div>
         <span id="sync-label">Connecting…</span>
+        <button onclick="manualRefresh()" title="Refresh now" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 9px;font-size:11px;font-family:inherit;cursor:pointer;">↻ Refresh</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:6px;">Bin ID: <span id="bin-id-display" style="font-family:'DM Mono',monospace;font-size:10px;"></span></div>
     </div>
@@ -703,7 +704,16 @@ function launchApp(){
   setTodayDates();
   render();
   setSyncStatus('ok','Connected');
-  setInterval(loadFromBin,30000);
+  // Auto-refresh every 5 minutes, but only while the tab is actually visible.
+  // Background tabs no longer poll, which is what was burning through the JSONBin free tier.
+  setInterval(()=>{ if(document.visibilityState==='visible' && !syncing) loadFromBin(); },300000);
+  // Pull a fresh copy the moment someone switches back to the tab.
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && !syncing) loadFromBin(); });
+}
+
+function manualRefresh(){
+  if(syncing){ toast('Hang on — a save is still in progress.',false); return; }
+  loadFromBin();
 }
 
 function fmt(n){
