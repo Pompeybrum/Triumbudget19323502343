@@ -1159,10 +1159,12 @@ function renderCommitments(){
 
   const target=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
   const t=commitTotals();
-  const headroom=target-t.wk;
+  const mtnWk=motionOutWk();
+  const wkAll=t.wk+mtnWk;
+  const headroom=target-wkAll;
   document.getElementById('commit-metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Weekly commitments</div><div class="metric-val">${fmtC(t.wk,'$')}</div><div class="metric-sub">converted to $</div></div>
-    <div class="metric"><div class="metric-label">Monthly commitments</div><div class="metric-val">${fmtC(t.mo,'$')}</div></div>
+    <div class="metric"><div class="metric-label">Weekly commitments</div><div class="metric-val">${fmtC(wkAll,'$')}</div><div class="metric-sub">incl. ${fmtC(mtnWk,'$')} Motion savings</div></div>
+    <div class="metric"><div class="metric-label">Monthly commitments</div><div class="metric-val">${fmtC(wkAll*52/12,'$')}</div><div class="metric-sub">incl. Motion savings</div></div>
     <div class="metric"><div class="metric-label">Weekly target</div><div class="metric-val">${fmtC(target,'$')}</div></div>
     <div class="metric"><div class="metric-label">Headroom at target</div><div class="metric-val" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}<span style="font-size:13px;color:var(--muted)">/wk</span></div><div class="metric-sub">${headroom>=0?'target covers commitments':'target does NOT cover commitments'}</div></div>`;
 
@@ -1384,14 +1386,19 @@ function renderSpendPanel(){
   const subsMo=subs.reduce((s,x)=>s+x.cost,0);
   const owedOut=(S.owed||[]).filter(o=>!o.repaid).reduce((s,o)=>s+o.amount,0);
   const ct=commitTotals();
-  const headroom=target-ct.wk;
+  const mtn=S.motion||MOTION_DEFAULT;
+  const motionWk=motionOutWk();
+  const committedWk=ct.wk+motionWk;
+  const headroom=target-committedWk;
   const catRows=CAT_ORDER.filter(c=>ct.cats[c]).map(c=>`
     <div class="sp-row"><div class="sp-name"><span>${CAT_LABELS[c]}</span></div>
       <div class="sp-amt">${fmtC(ct.cats[c].wk,'$')}/wk<small>${fmtC(ct.cats[c].mo,'$')}/mo</small></div></div>`).join('');
   document.getElementById('commitments-panel').innerHTML=catRows+`
+    <div class="sp-row"><div class="sp-name"><span>Motion savings (${mtn.solPerDay} SOL/day)</span></div>
+      <div class="sp-amt">${fmtC(motionWk,'$')}/wk<small>${fmtC(motionWk*52/12,'$')}/mo</small></div></div>
     <div class="sp-row"><div class="sp-name"><span>Money owed (outstanding)</span></div>
       <div class="sp-amt${owedOut>0?' neg':''}">${owedOut>0?fmt(owedOut):'—'}<small>one-off repayments due</small></div></div>
-    <div class="sp-total"><span>Committed</span><span class="sp-amt">${fmtC(ct.wk,'$')}/wk</span></div>
+    <div class="sp-total"><span>Committed</span><span class="sp-amt">${fmtC(committedWk,'$')}/wk</span></div>
     <div class="sp-total" style="border-top:none;padding-top:4px;"><span>Headroom at target</span>
       <span class="sp-amt" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}/wk</span></div>
     <div class="sp-note">Salaries include pension on top. £ converted at $${(S.fxGbpUsd||FX_DEFAULT).toFixed(2)} — edit on the Commitments page.${subsMo>0?` Tracked subscriptions currently ${fmt(subsMo)}/mo.`:''}</div>`;
