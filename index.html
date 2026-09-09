@@ -561,6 +561,7 @@ select option{background:#1a1816;color:var(--paper)}
               <option value="team">Team payroll</option>
               <option value="prize">Prize pot</option>
               <option value="subs">Subscriptions</option>
+              <option value="mkt">Marketing</option>
               <option value="ops">Operations</option>
             </select>
           </div>
@@ -605,7 +606,7 @@ select option{background:#1a1816;color:var(--paper)}
         <div class="card-label">Earn interest &amp; Motion savings</div>
         <div class="form-grid-3">
           <div class="form-group">
-            <label class="form-label">Earn rate (% APY)</label>
+            <label class="form-label">Earn rate (% APR on holdings)</label>
             <input type="number" id="ey-apy" step="0.1" min="0">
           </div>
           <div class="form-group">
@@ -820,8 +821,9 @@ const POT_DEFAULTS=[
 
 const WEEKLY_TARGET_DEFAULT=15000;
 const FX_DEFAULT=1.35;
-const CAT_LABELS={team:'Team payroll',prize:'Prize pot',subs:'Subscriptions',ops:'Operations'};
-const CAT_ORDER=['team','prize','subs','ops'];
+const CAT_LABELS={team:'Team payroll',prize:'Prize pot',subs:'Subscriptions',mkt:'Marketing',ops:'Operations'};
+const CAT_ORDER=['team','prize','subs','mkt','ops'];
+const MKT_COMMIT={id:'c-mkt',name:'Marketing budget',cat:'mkt',amount:1000,cur:'USD',freq:'weekly',pensionPct:0};
 const COMMIT_DEFAULTS=[
   {id:'c-tim',   name:'Tim — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
   {id:'c-jon',   name:'Jon — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
@@ -830,11 +832,12 @@ const COMMIT_DEFAULTS=[
   {id:'c-seishu',name:'Seishu',              cat:'team', amount:100, cur:'USD',freq:'weekly', pensionPct:0},
   {id:'c-lendy', name:'Lendy',               cat:'team', amount:100, cur:'USD',freq:'weekly', pensionPct:0},
   {id:'c-prize', name:'Prize pot',           cat:'prize',amount:8000,cur:'USD',freq:'weekly', pensionPct:0},
+  {...MKT_COMMIT},
   {id:'c-subs',  name:'Subscriptions (est.)',cat:'subs', amount:6000,cur:'USD',freq:'monthly',pensionPct:0},
   {id:'c-legal', name:'Legal',               cat:'ops',  amount:1500,cur:'USD',freq:'monthly',pensionPct:0},
   {id:'c-rent',  name:'Rent',                cat:'ops',  amount:500, cur:'GBP',freq:'monthly',pensionPct:0},
 ];
-const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
+const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),mktBudgetAdded:true,fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
 
 let S=JSON.parse(JSON.stringify(EMPTY_STATE));
 let API_KEY='';
@@ -869,6 +872,10 @@ async function loadFromBin(){
     if(!S.currency)S.currency='$';
     if(!S.weeklyTarget)S.weeklyTarget=WEEKLY_TARGET_DEFAULT;
     if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+    if(!S.mktBudgetAdded){
+      if(!S.commitments.find(c=>c.id===MKT_COMMIT.id))S.commitments.push({...MKT_COMMIT});
+      S.mktBudgetAdded=true;
+    }
     if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
     if(!S.earn)S.earn={...EARN_DEFAULT};
     if(!S.motion)S.motion={...MOTION_DEFAULT};
@@ -919,6 +926,10 @@ async function setupConnect(){
     if(!S.currency)S.currency='$';
     if(!S.weeklyTarget)S.weeklyTarget=WEEKLY_TARGET_DEFAULT;
     if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+    if(!S.mktBudgetAdded){
+      if(!S.commitments.find(c=>c.id===MKT_COMMIT.id))S.commitments.push({...MKT_COMMIT});
+      S.mktBudgetAdded=true;
+    }
     if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
     if(!S.earn)S.earn={...EARN_DEFAULT};
     if(!S.motion)S.motion={...MOTION_DEFAULT};
@@ -1148,10 +1159,12 @@ function renderCommitments(){
 
   const target=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
   const t=commitTotals();
-  const headroom=target-t.wk;
+  const mtnWk=motionOutWk();
+  const wkAll=t.wk+mtnWk;
+  const headroom=target-wkAll;
   document.getElementById('commit-metrics').innerHTML=`
-    <div class="metric"><div class="metric-label">Weekly commitments</div><div class="metric-val">${fmtC(t.wk,'$')}</div><div class="metric-sub">converted to $</div></div>
-    <div class="metric"><div class="metric-label">Monthly commitments</div><div class="metric-val">${fmtC(t.mo,'$')}</div></div>
+    <div class="metric"><div class="metric-label">Weekly commitments</div><div class="metric-val">${fmtC(wkAll,'$')}</div><div class="metric-sub">incl. ${fmtC(mtnWk,'$')} Motion savings</div></div>
+    <div class="metric"><div class="metric-label">Monthly commitments</div><div class="metric-val">${fmtC(wkAll*52/12,'$')}</div><div class="metric-sub">incl. Motion savings</div></div>
     <div class="metric"><div class="metric-label">Weekly target</div><div class="metric-val">${fmtC(target,'$')}</div></div>
     <div class="metric"><div class="metric-label">Headroom at target</div><div class="metric-val" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}<span style="font-size:13px;color:var(--muted)">/wk</span></div><div class="metric-sub">${headroom>=0?'target covers commitments':'target does NOT cover commitments'}</div></div>`;
 
@@ -1373,14 +1386,19 @@ function renderSpendPanel(){
   const subsMo=subs.reduce((s,x)=>s+x.cost,0);
   const owedOut=(S.owed||[]).filter(o=>!o.repaid).reduce((s,o)=>s+o.amount,0);
   const ct=commitTotals();
-  const headroom=target-ct.wk;
+  const mtn=S.motion||MOTION_DEFAULT;
+  const motionWk=motionOutWk();
+  const committedWk=ct.wk+motionWk;
+  const headroom=target-committedWk;
   const catRows=CAT_ORDER.filter(c=>ct.cats[c]).map(c=>`
     <div class="sp-row"><div class="sp-name"><span>${CAT_LABELS[c]}</span></div>
       <div class="sp-amt">${fmtC(ct.cats[c].wk,'$')}/wk<small>${fmtC(ct.cats[c].mo,'$')}/mo</small></div></div>`).join('');
   document.getElementById('commitments-panel').innerHTML=catRows+`
+    <div class="sp-row"><div class="sp-name"><span>Motion savings (${mtn.solPerDay} SOL/day)</span></div>
+      <div class="sp-amt">${fmtC(motionWk,'$')}/wk<small>${fmtC(motionWk*52/12,'$')}/mo</small></div></div>
     <div class="sp-row"><div class="sp-name"><span>Money owed (outstanding)</span></div>
       <div class="sp-amt${owedOut>0?' neg':''}">${owedOut>0?fmt(owedOut):'—'}<small>one-off repayments due</small></div></div>
-    <div class="sp-total"><span>Committed</span><span class="sp-amt">${fmtC(ct.wk,'$')}/wk</span></div>
+    <div class="sp-total"><span>Committed</span><span class="sp-amt">${fmtC(committedWk,'$')}/wk</span></div>
     <div class="sp-total" style="border-top:none;padding-top:4px;"><span>Headroom at target</span>
       <span class="sp-amt" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}/wk</span></div>
     <div class="sp-note">Salaries include pension on top. £ converted at $${(S.fxGbpUsd||FX_DEFAULT).toFixed(2)} — edit on the Commitments page.${subsMo>0?` Tracked subscriptions currently ${fmt(subsMo)}/mo.`:''}</div>`;
