@@ -118,10 +118,10 @@ select option{background:#1a1816;color:var(--paper)}
 /* EMPTY */
 .empty{text-align:center;padding:48px 24px;color:var(--muted);font-size:14px}
 .empty-icon{font-size:32px;margin-bottom:10px;opacity:0.4}
-/* SPEND PANEL (overview right column) */
+/* SPEND GRID (overview main content) */
 #page-overview{max-width:1300px}
-.overview-cols{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:20px;align-items:start}
-.spend-panel .card{padding:16px 18px;margin-bottom:12px}
+.spend-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;align-items:start;margin-bottom:8px}
+.spend-grid .card{padding:16px 18px;margin-bottom:0}
 .sp-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 0;font-size:12px;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.04)}
 .sp-row:last-child{border-bottom:none}
 .sp-row .sp-name{display:flex;align-items:center;gap:7px;min-width:0}
@@ -150,7 +150,7 @@ select option{background:#1a1816;color:var(--paper)}
   .form-grid,.form-grid-3{grid-template-columns:1fr}
   .pots-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
   .metrics{grid-template-columns:1fr 1fr}
-  .overview-cols{grid-template-columns:1fr}
+  .spend-grid{grid-template-columns:1fr}
   .toast{bottom:76px;right:12px;left:12px}
   .ledger-table th:nth-child(3),.ledger-table td:nth-child(3){display:none}
 }
@@ -225,25 +225,7 @@ select option{background:#1a1816;color:var(--paper)}
         <div class="page-title">Overview</div>
         <div class="page-sub" id="overview-sub">Loading…</div>
       </div>
-      <div class="overview-cols">
-        <div>
-          <div class="pots-grid" id="pots-grid"></div>
-          <div class="metrics" id="metrics-row"></div>
-          <div class="card">
-            <div class="card-label">Bank reconciliation</div>
-            <div class="form-grid" style="margin-bottom:0;">
-              <div class="form-group">
-                <label class="form-label">Your actual bank balance</label>
-                <input type="number" id="bank-actual" placeholder="0.00" step="0.01" oninput="reconcile()">
-              </div>
-              <div style="display:flex;align-items:flex-end;">
-                <div id="reconcile-result" class="reconcile-result" style="width:100%;display:flex;align-items:center;"></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <aside class="spend-panel">
+      <div class="spend-grid">
           <div class="card">
             <div class="card-label">Weekly revenue target</div>
             <div class="target-wrap">
@@ -302,7 +284,22 @@ select option{background:#1a1816;color:var(--paper)}
             <div id="spendable-panel"></div>
             <div class="sp-note">Pot balance minus one month of subscriptions charged to that pot. Total also holds back money owed. Tax provision excluded.</div>
           </div>
-        </aside>
+      </div>
+
+      <div class="card-label" style="margin:32px 0 12px;">Current pot balances</div>
+      <div class="pots-grid" id="pots-grid"></div>
+      <div class="metrics" id="metrics-row"></div>
+      <div class="card">
+        <div class="card-label">Bank reconciliation</div>
+        <div class="form-grid" style="margin-bottom:0;">
+          <div class="form-group">
+            <label class="form-label">Your actual bank balance</label>
+            <input type="number" id="bank-actual" placeholder="0.00" step="0.01" oninput="reconcile()">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <div id="reconcile-result" class="reconcile-result" style="width:100%;display:flex;align-items:center;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
