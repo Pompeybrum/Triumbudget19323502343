@@ -118,6 +118,25 @@ select option{background:#1a1816;color:var(--paper)}
 /* EMPTY */
 .empty{text-align:center;padding:48px 24px;color:var(--muted);font-size:14px}
 .empty-icon{font-size:32px;margin-bottom:10px;opacity:0.4}
+/* SPEND PANEL (overview right column) */
+#page-overview{max-width:1300px}
+.overview-cols{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:20px;align-items:start}
+.spend-panel .card{padding:16px 18px;margin-bottom:12px}
+.sp-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 0;font-size:12px;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.04)}
+.sp-row:last-child{border-bottom:none}
+.sp-row .sp-name{display:flex;align-items:center;gap:7px;min-width:0}
+.sp-row .sp-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-amt{font-family:'DM Mono',monospace;color:var(--paper);white-space:nowrap;text-align:right}
+.sp-amt small{display:block;font-size:10px;color:var(--muted);font-family:'DM Sans',sans-serif}
+.sp-amt.neg{color:#E57373}
+.sp-total{display:flex;justify-content:space-between;align-items:baseline;padding-top:9px;margin-top:6px;border-top:1px solid var(--border);font-size:12px;color:var(--paper);font-weight:500}
+.sp-note{font-size:11px;color:var(--muted);margin-top:9px;line-height:1.5}
+.progress-track{height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-top:12px}
+.progress-fill{height:100%;background:var(--gold);border-radius:3px;transition:width 0.3s}
+.progress-fill.hit{background:var(--green)}
+.target-wrap{display:flex;align-items:center;gap:8px}
+.target-wrap .cur{font-family:'DM Mono',monospace;font-size:18px;color:var(--gold)}
+.target-wrap input{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;padding:8px 12px}
 /* MOBILE */
 @media(max-width:700px){
   .app{grid-template-columns:1fr}
@@ -131,6 +150,7 @@ select option{background:#1a1816;color:var(--paper)}
   .form-grid,.form-grid-3{grid-template-columns:1fr}
   .pots-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
   .metrics{grid-template-columns:1fr 1fr}
+  .overview-cols{grid-template-columns:1fr}
   .toast{bottom:76px;right:12px;left:12px}
   .ledger-table th:nth-child(3),.ledger-table td:nth-child(3){display:none}
 }
@@ -181,12 +201,17 @@ select option{background:#1a1816;color:var(--paper)}
     <div class="nav-item" onclick="nav('income')"><span class="nav-icon">↑</span> Add income</div>
     <div class="nav-item" onclick="nav('expense')"><span class="nav-icon">↓</span> Add expense</div>
     <div class="nav-item" onclick="nav('ledger')"><span class="nav-icon">≡</span> Ledger</div>
+    <div class="nav-item" onclick="nav('transfer')"><span class="nav-icon">⇄</span> Transfer</div>
     <div class="nav-section">Admin</div>
+    <div class="nav-item" onclick="nav('subscriptions')"><span class="nav-icon">↻</span> Subscriptions</div>
+    <div class="nav-item" onclick="nav('commitments')"><span class="nav-icon">▤</span> Commitments</div>
+    <div class="nav-item" onclick="nav('owed')"><span class="nav-icon">$</span> Money owed</div>
     <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙</span> Settings</div>
     <div class="sidebar-footer">
       <div class="sync-status">
         <div class="sync-dot" id="sync-dot"></div>
         <span id="sync-label">Connecting…</span>
+        <button onclick="manualRefresh()" title="Refresh now" style="margin-left:auto;background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 9px;font-size:11px;font-family:inherit;cursor:pointer;">↻ Refresh</button>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:6px;">Bin ID: <span id="bin-id-display" style="font-family:'DM Mono',monospace;font-size:10px;"></span></div>
     </div>
@@ -200,19 +225,84 @@ select option{background:#1a1816;color:var(--paper)}
         <div class="page-title">Overview</div>
         <div class="page-sub" id="overview-sub">Loading…</div>
       </div>
-      <div class="pots-grid" id="pots-grid"></div>
-      <div class="metrics" id="metrics-row"></div>
-      <div class="card">
-        <div class="card-label">Bank reconciliation</div>
-        <div class="form-grid" style="margin-bottom:0;">
-          <div class="form-group">
-            <label class="form-label">Your actual bank balance</label>
-            <input type="number" id="bank-actual" placeholder="0.00" step="0.01" oninput="reconcile()">
-          </div>
-          <div style="display:flex;align-items:flex-end;">
-            <div id="reconcile-result" class="reconcile-result" style="width:100%;display:flex;align-items:center;"></div>
+      <div class="overview-cols">
+        <div>
+          <div class="pots-grid" id="pots-grid"></div>
+          <div class="metrics" id="metrics-row"></div>
+          <div class="card">
+            <div class="card-label">Bank reconciliation</div>
+            <div class="form-grid" style="margin-bottom:0;">
+              <div class="form-group">
+                <label class="form-label">Your actual bank balance</label>
+                <input type="number" id="bank-actual" placeholder="0.00" step="0.01" oninput="reconcile()">
+              </div>
+              <div style="display:flex;align-items:flex-end;">
+                <div id="reconcile-result" class="reconcile-result" style="width:100%;display:flex;align-items:center;"></div>
+              </div>
+            </div>
           </div>
         </div>
+
+        <aside class="spend-panel">
+          <div class="card">
+            <div class="card-label">Weekly revenue target</div>
+            <div class="target-wrap">
+              <span class="cur" id="target-cur">$</span>
+              <input type="number" id="weekly-target-input" step="100" min="0" onchange="saveWeeklyTarget()">
+            </div>
+            <div class="sp-note" id="target-monthly" style="margin-top:6px;"></div>
+            <div class="progress-track"><div class="progress-fill" id="week-progress-fill" style="width:0%"></div></div>
+            <div class="sp-note" id="week-progress-label" style="margin-top:6px;"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Hitting target funds — per week</div>
+            <div id="target-breakdown"></div>
+            <div class="sp-note">Weekly amounts when the target is hit. Smaller figure is the monthly equivalent.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Commitments</div>
+            <div id="commitments-panel"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Runway</div>
+            <div class="form-grid" style="gap:10px;margin-bottom:10px;">
+              <div class="form-group">
+                <label class="form-label">Cash available</label>
+                <input type="number" id="rw-cash" step="100" oninput="this.dataset.dirty=this.value?'1':'';renderRunway()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Earnings / week</label>
+                <input type="number" id="rw-earn" step="100" oninput="this.dataset.dirty=this.value?'1':'';renderRunway()">
+              </div>
+            </div>
+            <div id="rw-output"></div>
+            <div class="form-grid" style="gap:10px;margin:12px 0 4px;">
+              <div class="form-group">
+                <label class="form-label">Goal amount</label>
+                <input type="number" id="rw-goal" step="1000" placeholder="e.g. 100000" oninput="renderRunway()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Within (weeks)</label>
+                <input type="number" id="rw-goal-weeks" step="1" min="1" placeholder="e.g. 26" oninput="renderRunway()">
+              </div>
+            </div>
+            <div id="rw-goal-output" class="sp-note"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Motion savings</div>
+            <div id="motion-panel"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Safe to spend now</div>
+            <div id="spendable-panel"></div>
+            <div class="sp-note">Pot balance minus one month of subscriptions charged to that pot. Total also holds back money owed. Tax provision excluded.</div>
+          </div>
+        </aside>
       </div>
     </div>
 
@@ -220,7 +310,7 @@ select option{background:#1a1816;color:var(--paper)}
     <div id="page-income" class="page">
       <div class="page-header">
         <div class="page-title">Add income</div>
-        <div class="page-sub">Revenue is split across all pots automatically</div>
+        <div class="page-sub" id="income-sub">Revenue is split across all pots automatically</div>
       </div>
       <div class="card">
         <div class="form-grid">
@@ -237,13 +327,30 @@ select option{background:#1a1816;color:var(--paper)}
           <label class="form-label">Note</label>
           <input type="text" id="inc-note" placeholder="e.g. Week 22 — pack sales + marketplace fees">
         </div>
-        <div id="dist-preview" class="dist-preview" style="display:none;">
-          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:8px;">Distribution</div>
-          <div id="dist-rows"></div>
+
+        <div style="display:flex;gap:8px;margin-bottom:16px;padding:3px;background:rgba(255,255,255,0.04);border-radius:8px;width:fit-content;">
+          <button id="mode-all-btn" class="btn btn-primary btn-sm" onclick="setIncomeMode('all')" style="border-radius:6px;">All pots</button>
+          <button id="mode-custom-btn" class="btn btn-ghost btn-sm" onclick="setIncomeMode('custom')" style="border-radius:6px;">Specific pots</button>
         </div>
+
+        <div id="custom-pots-section" style="display:none;margin-bottom:14px;">
+          <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Select which pots to distribute to — percentages will be re-proportioned across selected pots</div>
+          <div id="pot-checkboxes" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px;"></div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button class="btn btn-ghost btn-sm" onclick="selectAllPots(true)">Select all</button>
+            <button class="btn btn-ghost btn-sm" onclick="selectAllPots(false)">Clear all</button>
+          </div>
+        </div>
+
+        <div id="dist-preview" class="dist-preview" style="display:none;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--gold);margin-bottom:8px;">Distribution preview</div>
+          <div id="dist-rows"></div>
+          <div id="dist-unallocated" style="display:none;margin-top:8px;padding-top:8px;border-top:1px solid rgba(168,149,106,0.2);font-size:12px;color:#FFC107;"></div>
+        </div>
+
         <div style="margin-top:14px;display:flex;gap:10px;">
           <button class="btn btn-primary" onclick="addIncome()">Distribute to pots</button>
-          <button class="btn btn-ghost" onclick="document.getElementById('inc-amount').value='';document.getElementById('inc-note').value='';document.getElementById('dist-preview').style.display='none'">Clear</button>
+          <button class="btn btn-ghost" onclick="clearIncome()">Clear</button>
         </div>
       </div>
     </div>
@@ -315,6 +422,328 @@ select option{background:#1a1816;color:var(--paper)}
       </div>
     </div>
 
+    <!-- TRANSFER -->
+    <div id="page-transfer" class="page">
+      <div class="page-header">
+        <div class="page-title">Transfer</div>
+        <div class="page-sub">Move money between pots — useful for rebalancing or correcting entries</div>
+      </div>
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">From pot</label>
+            <select id="tr-from" onchange="checkTransferBalance()"></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">To pot</label>
+            <select id="tr-to"></select>
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" id="tr-amount" placeholder="0.00" step="0.01" oninput="checkTransferBalance()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date</label>
+            <input type="date" id="tr-date">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Reason</label>
+          <input type="text" id="tr-note" placeholder="e.g. Moving surplus from prize pool to treasury">
+        </div>
+        <div id="tr-preview" style="display:none;margin-bottom:14px;">
+          <div class="dist-preview">
+            <div id="tr-preview-text" style="font-size:13px;color:var(--paper);"></div>
+            <div id="tr-balance-warn" style="display:none;margin-top:8px;font-size:12px;color:#FFC107;">⚠ This pot only has <span id="tr-from-bal"></span> — transfer will put it into negative.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;">
+          <button class="btn btn-primary" onclick="doTransfer()">Move funds</button>
+          <button class="btn btn-ghost" onclick="clearTransfer()">Clear</button>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:8px;">
+        <div class="card-label">Recent transfers</div>
+        <div id="transfer-history"></div>
+      </div>
+    </div>
+
+    <!-- SUBSCRIPTIONS -->
+    <div id="page-subscriptions" class="page">
+      <div class="page-header">
+        <div class="page-title">Subscriptions</div>
+        <div class="page-sub">Recurring monthly costs — for reference and budgeting</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Add a subscription</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Service name</label>
+            <input type="text" id="sub-name" placeholder="e.g. AWS, Figma, Discord Nitro">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Monthly cost</label>
+            <input type="number" id="sub-cost" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="sub-category">
+              <option value="Engineering">Engineering</option>
+              <option value="Design">Design</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Operations">Operations</option>
+              <option value="Legal">Legal</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Paid from pot</label>
+            <select id="sub-pot"></select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Notes (optional)</label>
+          <input type="text" id="sub-notes" placeholder="e.g. Team plan, 5 seats">
+        </div>
+        <button class="btn btn-primary" onclick="addSubscription()">Add subscription</button>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:2px;">Monthly subscriptions</div>
+        </div>
+        <table class="ledger-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th>Service</th>
+              <th>Category</th>
+              <th>Pot</th>
+              <th style="text-align:right;">Monthly</th>
+              <th style="text-align:right;">Annual</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="sub-body"></tbody>
+          <tfoot>
+            <tr id="sub-totals" style="border-top:1px solid var(--border);">
+              <td colspan="3" style="padding:12px 10px;font-size:13px;font-weight:500;color:var(--paper);">Total</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--gold);" id="sub-total-mo">—</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);" id="sub-total-yr">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- COMMITMENTS -->
+    <div id="page-commitments" class="page">
+      <div class="page-header">
+        <div class="page-title">Commitments</div>
+        <div class="page-sub">Fixed outgoings — salaries, prize pot and operating costs. £ amounts are converted to $ at your exchange rate.</div>
+      </div>
+      <div class="metrics" id="commit-metrics"></div>
+      <div class="card">
+        <div class="card-label">Add a commitment</div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" id="cm-name" placeholder="e.g. New hire — salary">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="cm-cat">
+              <option value="team">Team payroll</option>
+              <option value="prize">Prize pot</option>
+              <option value="subs">Subscriptions</option>
+              <option value="ops">Operations</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" id="cm-amount" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select id="cm-cur">
+              <option value="USD">$ USD</option>
+              <option value="GBP">£ GBP</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Frequency</label>
+            <select id="cm-freq">
+              <option value="monthly">Per month</option>
+              <option value="weekly">Per week</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pension on top (%)</label>
+            <input type="number" id="cm-pension" placeholder="0" step="0.5" min="0" value="0">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addCommitment()">Add commitment</button>
+      </div>
+      <div class="card">
+        <div class="card-label">GBP → USD exchange rate</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="width:110px;">
+            <input type="number" id="fx-rate" step="0.01" min="0.5" style="text-align:right;font-family:'DM Mono',monospace;">
+          </div>
+          <button class="btn btn-primary" onclick="saveFx()">Save rate</button>
+          <span style="font-size:12px;color:var(--muted);">£1 = $<span id="fx-preview">—</span> · used to convert salaries and rent</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Earn interest &amp; Motion savings</div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Earn rate (% APY)</label>
+            <input type="number" id="ey-apy" step="0.1" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Funds in earn (%)</label>
+            <input type="number" id="ey-pct" step="1" min="0" max="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">SOL per day → Motion</label>
+            <input type="number" id="mo-solday" step="0.1" min="0">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Motion wallet address (fetched live from fraudsworth.fyi)</label>
+          <input type="text" id="mo-wallet" style="font-family:'DM Mono',monospace;font-size:12px;">
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">SOL in Motion (fallback if live feed is down)</label>
+            <input type="number" id="mo-sol" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">SOL price $ (fallback)</label>
+            <input type="number" id="mo-solprice" step="0.01" min="0">
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="saveTreasury()">Save savings settings</button>
+          <span style="font-size:12px;color:var(--muted);" id="treasury-live"></span>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th style="text-align:right;">Weekly $</th>
+              <th style="text-align:right;">Monthly $</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="commit-body"></tbody>
+          <tfoot>
+            <tr style="border-top:1px solid var(--border);">
+              <td colspan="3" style="padding:12px 10px;font-size:13px;font-weight:500;color:var(--paper);">Total</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--gold);" id="commit-total-wk">—</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--gold);" id="commit-total-mo">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
+    <!-- MONEY OWED -->
+    <div id="page-owed" class="page">
+      <div class="page-header">
+        <div class="page-title">Money owed</div>
+        <div class="page-sub">Track what the company owes founders and team members for out-of-pocket costs</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Log an out-of-pocket expense</div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Who paid</label>
+            <input type="text" id="owed-who" placeholder="e.g. Jon, Tim">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" id="owed-amount" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Date paid</label>
+            <input type="date" id="owed-date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="owed-category">
+              <option value="Software">Software</option>
+              <option value="Hardware">Hardware</option>
+              <option value="Legal">Legal</option>
+              <option value="Marketing">Marketing</option>
+              <option value="Design">Design</option>
+              <option value="Travel">Travel</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Description</label>
+          <input type="text" id="owed-desc" placeholder="e.g. Figma annual plan, domain registration">
+        </div>
+        <button class="btn btn-primary" onclick="addOwed()">Add to owed list</button>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:16px 20px 0;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);padding-bottom:12px;">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">Outstanding — to be repaid</div>
+          <select id="owed-filter" onchange="renderOwed()" style="width:auto;font-size:12px;">
+            <option value="all">Everyone</option>
+          </select>
+        </div>
+        <table class="ledger-table" style="width:100%;">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Who</th>
+              <th>Description</th>
+              <th>Category</th>
+              <th style="text-align:right;">Amount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="owed-body"></tbody>
+          <tfoot>
+            <tr style="border-top:1px solid var(--border);">
+              <td colspan="4" style="padding:12px 10px;font-size:13px;font-weight:500;color:var(--paper);">Total outstanding</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:#E57373;" id="owed-total">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="card" style="padding:0;overflow:hidden;margin-top:0;">
+        <div style="padding:16px 20px 12px;border-bottom:1px solid var(--border);">
+          <div style="font-size:10px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);">Repaid</div>
+        </div>
+        <table class="ledger-table" style="width:100%;">
+          <thead><tr><th>Date</th><th>Who</th><th>Description</th><th>Repaid on</th><th style="text-align:right;">Amount</th><th></th></tr></thead>
+          <tbody id="owed-repaid-body"></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- SETTINGS -->
     <div id="page-settings" class="page">
       <div class="page-header">
@@ -322,11 +751,23 @@ select option{background:#1a1816;color:var(--paper)}
         <div class="page-sub">Manage allocations, currency, and connection</div>
       </div>
       <div class="card" style="margin-bottom:16px;">
-        <div class="card-label">Pot allocations — applies to future income only</div>
+        <div class="card-label">Tax provision — deducted before any pot allocation</div>
+        <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);margin-bottom:12px;">
+          <div class="dot-badge" style="background:#5B9BD5;width:8px;height:8px;border-radius:2px;flex-shrink:0;"></div>
+          <div style="flex:1;font-size:13px;color:var(--paper);">Tax provision <span style="font-size:11px;color:var(--muted);">(taken off gross revenue first)</span></div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <input type="number" min="0" max="50" step="1" id="sp-tax-pct" value="10" oninput="updateSettingsTotal()" style="width:60px;text-align:right;font-size:13px;">
+            <span style="font-size:13px;color:var(--muted);">%</span>
+          </div>
+        </div>
+        <div style="font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:10px;">Pot allocations — % of after-tax revenue. Must total 100%.</div>
         <div id="settings-pots"></div>
-        <div class="pct-total">
-          <span>Total</span>
-          <span id="settings-total">100%</span>
+        <div style="margin-top:10px;padding:10px 0;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+          <button class="btn btn-ghost btn-sm" onclick="addNewPot()" style="color:var(--gold);border-color:rgba(168,149,106,0.3);">+ Add pot</button>
+          <div class="pct-total" style="border:none;margin:0;padding:0;">
+            <span style="font-size:13px;color:var(--muted);margin-right:8px;">Total</span>
+            <span id="settings-total">100%</span>
+          </div>
         </div>
         <div style="display:flex;gap:10px;margin-top:14px;">
           <button class="btn btn-primary" onclick="saveAllocations()">Save allocations</button>
@@ -362,8 +803,11 @@ select option{background:#1a1816;color:var(--paper)}
 <div id="toast" class="toast"></div>
 
 <script>
+const TAX_DEFAULT=0;
+const EARN_DEFAULT={apy:3.5,pct:90};
+const MOTION_DEFAULT={wallet:'sYiM8x9PW5raAXmtwb1mpV9aKDzgy3zr43qPwaUxJsE',sol:65,solPerDay:1.5,solPrice:104};
+const FW_BASE='https://www.fraudsworth.fyi';
 const POT_DEFAULTS=[
-  {key:'tax',   name:'Tax provision',     pct:10,color:'#5B9BD5'},
   {key:'eng',   name:'Engineering/staff', pct:20,color:'#8B1A2E'},
   {key:'prize', name:'Prize pool seed',   pct:35,color:'#A8956A'},
   {key:'tourn', name:'Weekly winner',     pct:5, color:'#C4A95A'},
@@ -374,7 +818,23 @@ const POT_DEFAULTS=[
   {key:'treas', name:'Treasury',          pct:14,color:'#1C1C1A'},
 ];
 
-const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$'};
+const WEEKLY_TARGET_DEFAULT=15000;
+const FX_DEFAULT=1.35;
+const CAT_LABELS={team:'Team payroll',prize:'Prize pot',subs:'Subscriptions',ops:'Operations'};
+const CAT_ORDER=['team','prize','subs','ops'];
+const COMMIT_DEFAULTS=[
+  {id:'c-tim',   name:'Tim — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-jon',   name:'Jon — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-joe',   name:'Joe — salary',        cat:'team', amount:2900,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-jason', name:'Jason — salary',      cat:'team', amount:1915,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-seishu',name:'Seishu',              cat:'team', amount:100, cur:'USD',freq:'weekly', pensionPct:0},
+  {id:'c-lendy', name:'Lendy',               cat:'team', amount:100, cur:'USD',freq:'weekly', pensionPct:0},
+  {id:'c-prize', name:'Prize pot',           cat:'prize',amount:8000,cur:'USD',freq:'weekly', pensionPct:0},
+  {id:'c-subs',  name:'Subscriptions (est.)',cat:'subs', amount:6000,cur:'USD',freq:'monthly',pensionPct:0},
+  {id:'c-legal', name:'Legal',               cat:'ops',  amount:1500,cur:'USD',freq:'monthly',pensionPct:0},
+  {id:'c-rent',  name:'Rent',                cat:'ops',  amount:500, cur:'GBP',freq:'monthly',pensionPct:0},
+];
+const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
 
 let S=JSON.parse(JSON.stringify(EMPTY_STATE));
 let API_KEY='';
@@ -407,6 +867,12 @@ async function loadFromBin(){
     if(!S.pots)S.pots={};
     if(!S.transactions)S.transactions=[];
     if(!S.currency)S.currency='$';
+    if(!S.weeklyTarget)S.weeklyTarget=WEEKLY_TARGET_DEFAULT;
+    if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+    if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
+    if(!S.earn)S.earn={...EARN_DEFAULT};
+    if(!S.motion)S.motion={...MOTION_DEFAULT};
+    if(!S.taxRemoved){S.taxPct=0;S.taxRemoved=true;}
     setSyncStatus('ok','Synced');
     render();
   }catch(e){
@@ -451,6 +917,12 @@ async function setupConnect(){
     if(!S.pots)S.pots={};
     if(!S.transactions)S.transactions=[];
     if(!S.currency)S.currency='$';
+    if(!S.weeklyTarget)S.weeklyTarget=WEEKLY_TARGET_DEFAULT;
+    if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+    if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
+    if(!S.earn)S.earn={...EARN_DEFAULT};
+    if(!S.motion)S.motion={...MOTION_DEFAULT};
+    if(!S.taxRemoved){S.taxPct=0;S.taxRemoved=true;}
     localStorage.setItem('pa-key',API_KEY);
     localStorage.setItem('pa-bin',BIN_ID);
     launchApp();
@@ -468,8 +940,19 @@ function launchApp(){
   document.getElementById('bin-id-copy').value=BIN_ID;
   setTodayDates();
   render();
+  refreshLive();
   setSyncStatus('ok','Connected');
-  setInterval(loadFromBin,30000);
+  // Auto-refresh every 5 minutes, but only while the tab is actually visible.
+  // Background tabs no longer poll, which is what was burning through the JSONBin free tier.
+  setInterval(()=>{ if(document.visibilityState==='visible' && !syncing) loadFromBin(); },300000);
+  // Pull a fresh copy the moment someone switches back to the tab.
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible' && !syncing) loadFromBin(); });
+}
+
+function manualRefresh(){
+  if(syncing){ toast('Hang on — a save is still in progress.',false); return; }
+  loadFromBin();
+  refreshLive();
 }
 
 function fmt(n){
@@ -483,7 +966,7 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
 function pot(key){return S.pots[key]||0;}
 
 function render(){
-  renderPots();renderMetrics();renderExpPots();renderLedger();renderSettings();
+  renderPots();renderMetrics();renderExpPots();renderLedger();renderSettings();renderSpendPanel();
   document.getElementById('overview-sub').textContent='Last updated: '+(S.lastUpdated?new Date(S.lastUpdated).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'never');
   document.getElementById('currency-input').value=S.currency||'$';
   document.getElementById('bin-id-copy').value=BIN_ID;
@@ -491,7 +974,13 @@ function render(){
 }
 
 function renderPots(){
-  document.getElementById('pots-grid').innerHTML=S.allocations.map(p=>{
+  const taxBal=pot('tax');
+  const taxCard=(taxBal!==0||(S.taxPct||0)>0)?`<div class="pot-card" style="--pot-color:#5B9BD5">
+    <div class="pot-name">Tax provision</div>
+    <div class="pot-balance${taxBal<0?' neg':''}">${fmtS(taxBal)}</div>
+    <div class="pot-alloc">${S.taxPct||0}% off top</div>
+  </div>`:'';
+  const otherCards=S.allocations.filter(p=>p.key!=='tax').map(p=>{
     const b=pot(p.key);
     return`<div class="pot-card" style="--pot-color:${p.color}">
       <div class="pot-name">${p.name}</div>
@@ -499,10 +988,12 @@ function renderPots(){
       <div class="pot-alloc">${p.pct}% allocation</div>
     </div>`;
   }).join('');
+  document.getElementById('pots-grid').innerHTML=taxCard+otherCards;
 }
 
 function renderMetrics(){
-  const total=S.allocations.reduce((s,p)=>s+pot(p.key),0);
+  const allPotKeys=['tax',...S.allocations.filter(p=>p.key!=='tax').map(p=>p.key)];
+  const total=allPotKeys.reduce((s,k)=>s+pot(k),0);
   const totalIn=S.transactions.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
   const totalOut=S.transactions.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0);
   document.getElementById('metrics-row').innerHTML=`
@@ -513,7 +1004,8 @@ function renderMetrics(){
 }
 
 function renderExpPots(){
-  document.getElementById('exp-pot').innerHTML=S.allocations.map(p=>
+  const taxOpt=`<option value="tax">Tax provision (${fmtS(pot('tax'))})</option>`;
+  document.getElementById('exp-pot').innerHTML=taxOpt+S.allocations.filter(p=>p.key!=='tax').map(p=>
     `<option value="${p.key}">${p.name} (${fmtS(pot(p.key))})</option>`).join('');
 }
 
@@ -545,23 +1037,33 @@ function renderLedger(){
 }
 
 function renderSettings(){
-  document.getElementById('settings-pots').innerHTML=S.allocations.map(p=>`
-    <div class="settings-row">
-      <div class="settings-name"><div class="dot-badge" style="background:${p.color}"></div>${p.name}</div>
-      <input type="number" min="0" max="100" step="1" value="${p.pct}" id="sp-${p.key}" oninput="updateSettingsTotal()" style="text-align:right">
+  const taxPct=S.taxPct!==undefined?S.taxPct:TAX_DEFAULT;
+  const taxInput=document.getElementById('sp-tax-pct');
+  if(taxInput)taxInput.value=taxPct;
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
+  document.getElementById('settings-pots').innerHTML=allocs.map(p=>`
+    <div class="settings-row" style="grid-template-columns:1fr 110px 30px;">
+      <input type="text" value="${p.name}" id="sn-${p.key}" style="font-size:13px;color:var(--paper);background:transparent;border:1px solid transparent;padding:4px 6px;border-radius:4px;width:100%;" onfocus="this.style.borderColor='rgba(168,149,106,0.4)'" onblur="this.style.borderColor='transparent'">
+      <div style="display:flex;align-items:center;gap:4px;justify-content:flex-end;">
+        <input type="number" min="0" max="100" step="1" value="${p.pct}" id="sp-${p.key}" oninput="updateSettingsTotal()" style="width:55px;text-align:right;font-size:13px;">
+        <span style="font-size:13px;color:var(--muted);">%</span>
+      </div>
+      <button onclick="deletePot('${p.key}')" style="background:transparent;border:none;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:0 0 0 4px;" title="Delete pot">×</button>
     </div>`).join('');
   updateSettingsTotal();
 }
 
 function updateSettingsTotal(){
-  const t=S.allocations.reduce((s,p)=>s+(parseFloat(document.getElementById('sp-'+p.key)?.value)||0),0);
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
+  const t=allocs.reduce((s,p)=>s+(parseFloat(document.getElementById('sp-'+p.key)?.value)||0),0);
   const el=document.getElementById('settings-total');
-  el.textContent=t+'%';
-  el.style.color=t===100?'var(--paper)':'#FFC107';
+  el.textContent=Math.round(t*10)/10+'%';
+  el.style.color=Math.abs(t-100)<0.1?'var(--paper)':'#FFC107';
 }
 
 function reconcile(){
-  const total=S.allocations.reduce((s,p)=>s+pot(p.key),0);
+  const allPotKeys=['tax',...S.allocations.filter(p=>p.key!=='tax').map(p=>p.key)];
+  const total=allPotKeys.reduce((s,k)=>s+pot(k),0);
   const actual=parseFloat(document.getElementById('bank-actual').value);
   const el=document.getElementById('reconcile-result');
   if(isNaN(actual)){el.style.display='none';return;}
@@ -576,13 +1078,418 @@ function reconcile(){
   }
 }
 
+// LIVE DATA — SOL price, Motion (ex-PROFIT) token price, and staked balance from fraudsworth.fyi
+let LIVE={solUsd:null,motionUsd:null,motionChange:null,stakedSol:null,fetchedAt:null,err:false};
+
+async function fetchJsonMaybeProxy(url){
+  try{
+    const r=await fetch(url);
+    if(r.ok)return await r.json();
+  }catch(e){/* CORS or network — fall through to proxy */}
+  const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(url));
+  if(!r2.ok)throw new Error('live feed unavailable');
+  return r2.json();
+}
+
+async function refreshLive(){
+  try{
+    const pool=await fetchJsonMaybeProxy(FW_BASE+'/api/solana/pool-state');
+    if(pool.solUsdPrice)LIVE.solUsd=pool.solUsdPrice;
+    if(pool.profit){LIVE.motionUsd=pool.profit.priceUsd;LIVE.motionChange=pool.profit.percentChange;}
+    const w=(S.motion&&S.motion.wallet)||MOTION_DEFAULT.wallet;
+    if(w){
+      const wd=await fetchJsonMaybeProxy(FW_BASE+'/api/wallet/'+encodeURIComponent(w));
+      if(wd.staking&&wd.staking.stakedBalance)LIVE.stakedSol=parseFloat(wd.staking.stakedBalance)/1e9;
+    }
+    LIVE.fetchedAt=new Date();
+    LIVE.err=false;
+  }catch(e){
+    LIVE.err=true;
+  }
+  renderSpendPanel();
+  const cPage=document.getElementById('page-commitments');
+  if(cPage&&cPage.classList.contains('active'))renderCommitments();
+}
+
+function solPriceNow(){return LIVE.solUsd||(S.motion&&S.motion.solPrice)||MOTION_DEFAULT.solPrice;}
+function motionSolNow(){return LIVE.stakedSol!=null?LIVE.stakedSol:((S.motion&&S.motion.sol)||MOTION_DEFAULT.sol);}
+
+// COMMITMENTS
+function fmtC(n,sym){
+  return (n<0?'-':'')+sym+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// Convert a commitment to USD weekly + monthly figures (pension added on top, £ at the saved rate)
+function commitUSD(c){
+  const rate=S.fxGbpUsd||FX_DEFAULT;
+  const gross=c.amount*(1+(c.pensionPct||0)/100);
+  const usd=c.cur==='GBP'?gross*rate:gross;
+  return c.freq==='weekly'?{wk:usd,mo:usd*52/12}:{wk:usd*12/52,mo:usd};
+}
+
+function commitTotals(){
+  const cats={};let wk=0,mo=0;
+  (S.commitments||[]).forEach(c=>{
+    const u=commitUSD(c);wk+=u.wk;mo+=u.mo;
+    const cat=cats[c.cat]||(cats[c.cat]={wk:0,mo:0});
+    cat.wk+=u.wk;cat.mo+=u.mo;
+  });
+  return{cats,wk,mo};
+}
+
+function renderCommitments(){
+  const tbody=document.getElementById('commit-body');
+  if(!tbody)return;
+  if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+  const rate=S.fxGbpUsd||FX_DEFAULT;
+  const fxEl=document.getElementById('fx-rate');
+  if(document.activeElement!==fxEl)fxEl.value=rate;
+  document.getElementById('fx-preview').textContent=rate.toFixed(2);
+
+  const target=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
+  const t=commitTotals();
+  const headroom=target-t.wk;
+  document.getElementById('commit-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Weekly commitments</div><div class="metric-val">${fmtC(t.wk,'$')}</div><div class="metric-sub">converted to $</div></div>
+    <div class="metric"><div class="metric-label">Monthly commitments</div><div class="metric-val">${fmtC(t.mo,'$')}</div></div>
+    <div class="metric"><div class="metric-label">Weekly target</div><div class="metric-val">${fmtC(target,'$')}</div></div>
+    <div class="metric"><div class="metric-label">Headroom at target</div><div class="metric-val" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}<span style="font-size:13px;color:var(--muted)">/wk</span></div><div class="metric-sub">${headroom>=0?'target covers commitments':'target does NOT cover commitments'}</div></div>`;
+
+  const order=c=>{const i=CAT_ORDER.indexOf(c.cat);return i<0?99:i;};
+  const list=[...S.commitments].sort((a,b)=>order(a)-order(b));
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:24px">No commitments yet</div></td></tr>';
+  }else{
+    tbody.innerHTML=list.map(c=>{
+      const u=commitUSD(c);
+      const sym=c.cur==='GBP'?'£':'$';
+      const amt=fmtC(c.amount,sym)+(c.freq==='weekly'?'/wk':'/mo')+((c.pensionPct||0)>0?` <span style="color:var(--muted);font-size:11px">+${c.pensionPct}% pension</span>`:'');
+      return`<tr>
+        <td style="font-weight:500;color:var(--paper)">${c.name}</td>
+        <td><span class="badge" style="background:rgba(168,149,106,0.12);color:var(--gold)">${CAT_LABELS[c.cat]||c.cat}</span></td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--paper)">${amt}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--paper)">${fmtC(u.wk,'$')}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${fmtC(u.mo,'$')}</td>
+        <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteCommitment('${c.id}')">Remove</button></td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('commit-total-wk').textContent=list.length?fmtC(t.wk,'$'):'—';
+  document.getElementById('commit-total-mo').textContent=list.length?fmtC(t.mo,'$'):'—';
+
+  // Earn & Motion settings
+  const e=S.earn||EARN_DEFAULT;
+  const m=S.motion||MOTION_DEFAULT;
+  const setVal=(id,v)=>{const el=document.getElementById(id);if(el&&document.activeElement!==el)el.value=v;};
+  setVal('ey-apy',e.apy);setVal('ey-pct',e.pct);
+  setVal('mo-wallet',m.wallet||'');setVal('mo-sol',m.sol);setVal('mo-solday',m.solPerDay);setVal('mo-solprice',m.solPrice);
+  document.getElementById('treasury-live').textContent=
+    LIVE.fetchedAt&&!LIVE.err
+      ?`Live: SOL $${LIVE.solUsd?LIVE.solUsd.toFixed(2):'—'} · Motion balance ${LIVE.stakedSol!=null?LIVE.stakedSol.toFixed(2)+' SOL':'—'}`
+      :(LIVE.err?'Live feed unavailable — fallback figures in use.':'Fetching live data…');
+}
+
+function addCommitment(){
+  const name=document.getElementById('cm-name').value.trim();
+  const amount=parseFloat(document.getElementById('cm-amount').value);
+  if(!name||!amount||amount<=0){toast('Enter a name and a valid amount.',false);return;}
+  if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+  S.commitments.push({
+    id:uid(),name,
+    cat:document.getElementById('cm-cat').value,
+    amount,
+    cur:document.getElementById('cm-cur').value,
+    freq:document.getElementById('cm-freq').value,
+    pensionPct:parseFloat(document.getElementById('cm-pension').value)||0,
+  });
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  document.getElementById('cm-name').value='';
+  document.getElementById('cm-amount').value='';
+  document.getElementById('cm-pension').value='0';
+  toast('Commitment added.');
+}
+
+function deleteCommitment(id){
+  if(!confirm('Remove this commitment?'))return;
+  S.commitments=(S.commitments||[]).filter(c=>c.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  toast('Commitment removed.');
+}
+
+function saveTreasury(){
+  S.earn={
+    apy:parseFloat(document.getElementById('ey-apy').value)||0,
+    pct:Math.min(100,Math.max(0,parseFloat(document.getElementById('ey-pct').value)||0)),
+  };
+  S.motion={
+    wallet:document.getElementById('mo-wallet').value.trim(),
+    sol:parseFloat(document.getElementById('mo-sol').value)||0,
+    solPerDay:parseFloat(document.getElementById('mo-solday').value)||0,
+    solPrice:parseFloat(document.getElementById('mo-solprice').value)||0,
+  };
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  refreshLive();
+  toast('Savings settings updated.');
+}
+
+// Weekly outgoings beyond the commitments list: SOL paid into Motion, minus earn interest on cash
+function motionOutWk(){
+  const m=S.motion||MOTION_DEFAULT;
+  return (m.solPerDay||0)*7*solPriceNow();
+}
+function earnInterestWk(cash){
+  const e=S.earn||EARN_DEFAULT;
+  return cash*(e.pct/100)*(e.apy/100)/52;
+}
+
+function renderRunway(){
+  const out=document.getElementById('rw-output');
+  if(!out)return;
+  const allPotKeys=['tax',...S.allocations.filter(p=>p.key!=='tax').map(p=>p.key)];
+  const potsTotal=allPotKeys.reduce((s,k)=>s+pot(k),0);
+  const cashEl=document.getElementById('rw-cash');
+  if(document.activeElement!==cashEl&&!cashEl.dataset.dirty)cashEl.value=Math.round(potsTotal*100)/100;
+  const earnEl=document.getElementById('rw-earn');
+  if(document.activeElement!==earnEl&&!earnEl.dataset.dirty)earnEl.value=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
+  const cash=parseFloat(cashEl.value)||0;
+  const earnWk=parseFloat(earnEl.value)||0;
+  const e=S.earn||EARN_DEFAULT;
+  const m=S.motion||MOTION_DEFAULT;
+  const interestWk=earnInterestWk(cash);
+  const motionWk=motionOutWk();
+  const ct=commitTotals();
+  const burnWk=ct.wk+motionWk-interestWk;
+  const netWk=earnWk-burnWk;
+  const row=(label,amt,cls)=>`<div class="sp-row"><div class="sp-name"><span>${label}</span></div><div class="sp-amt${cls||''}">${amt}</div></div>`;
+  let html=
+    row('Earnings','+'+fmtC(earnWk,'$')+'/wk')+
+    row(`Earn interest (${e.apy}% on ${e.pct}%)`,'+'+fmtC(interestWk,'$')+'/wk')+
+    row('Commitments','−'+fmtC(ct.wk,'$')+'/wk')+
+    row(`Motion (${m.solPerDay} SOL/day)`,'−'+fmtC(motionWk,'$')+'/wk')+
+    `<div class="sp-total"><span>Net per week</span><span class="sp-amt${netWk<0?' neg':''}" style="${netWk>=0?'color:#81C784':''}">${netWk>=0?'+':''}${fmtC(netWk,'$')}</span></div>`;
+  if(netWk>=0){
+    html+=`<div class="sp-note">Self-sustaining — funds grow ${fmtC(netWk,'$')} a week at these earnings. Break-even is ${fmtC(burnWk,'$')}/wk.</div>`;
+  }else{
+    const weeks=cash>0?cash/(-netWk):0;
+    const zero=new Date(Date.now()+weeks*7*86400000);
+    html+=`<div class="sp-total" style="border-top:none;padding-top:4px;"><span>Runway left</span><span class="sp-amt${weeks<8?' neg':''}">${weeks.toFixed(1)} wks</span></div>
+      <div class="sp-note">At ${fmtC(earnWk,'$')}/wk earned, funds hit zero around <strong>${zero.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</strong>. Break-even is ${fmtC(burnWk,'$')}/wk.</div>`;
+  }
+  out.innerHTML=html;
+
+  const goal=parseFloat(document.getElementById('rw-goal').value);
+  const gw=parseFloat(document.getElementById('rw-goal-weeks').value);
+  const goalOut=document.getElementById('rw-goal-output');
+  if(goal>0&&gw>0){
+    const needWk=burnWk+(goal-cash)/gw;
+    goalOut.innerHTML=`To reach ${fmtC(goal,'$')} in ${gw} weeks you need to earn <strong style="color:var(--gold)">${fmtC(Math.max(needWk,0),'$')}/wk</strong>.`;
+  }else if(goal>0){
+    if(goal<=cash)goalOut.textContent='Already at that goal.';
+    else if(netWk>0){
+      const w=(goal-cash)/netWk;
+      goalOut.innerHTML=`At the current net, you reach ${fmtC(goal,'$')} in about <strong style="color:var(--gold)">${w.toFixed(1)} weeks</strong>.`;
+    }else goalOut.textContent='Goal is out of reach while the net per week is negative — raise earnings or add a timeframe above.';
+  }else goalOut.innerHTML='';
+}
+
+function renderMotionPanel(){
+  const el=document.getElementById('motion-panel');
+  if(!el)return;
+  const m=S.motion||MOTION_DEFAULT;
+  const solP=solPriceNow();
+  const bal=motionSolNow();
+  const outWk=motionOutWk();
+  const live=LIVE.fetchedAt&&!LIVE.err;
+  const changeTxt=typeof LIVE.motionChange==='number'?`${LIVE.motionChange>=0?'+':''}${LIVE.motionChange}% 24h`:'';
+  el.innerHTML=
+    `<div class="sp-row"><div class="sp-name"><span>Staked balance</span></div><div class="sp-amt">${bal.toFixed(2)} SOL<small>≈ ${fmtC(bal*solP,'$')}</small></div></div>`+
+    `<div class="sp-row"><div class="sp-name"><span>SOL price</span></div><div class="sp-amt">${fmtC(solP,'$')}</div></div>`+
+    (LIVE.motionUsd?`<div class="sp-row"><div class="sp-name"><span>MOTION token (ex-PROFIT)</span></div><div class="sp-amt">$${LIVE.motionUsd.toFixed(4)}<small>${changeTxt}</small></div></div>`:'')+
+    `<div class="sp-row"><div class="sp-name"><span>Paying in</span></div><div class="sp-amt">${m.solPerDay} SOL/day<small>≈ ${fmtC(outWk,'$')}/wk</small></div></div>`+
+    `<div class="sp-note">${live
+      ?`Live from fraudsworth.fyi · wallet ${(m.wallet||'').slice(0,6)}… · updated ${LIVE.fetchedAt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`
+      :(LIVE.err?'Live feed unavailable — using saved figures from the Commitments page.':'Fetching live data…')}</div>`;
+}
+
+function saveFx(){
+  const v=parseFloat(document.getElementById('fx-rate').value);
+  if(!v||v<=0){toast('Enter a valid exchange rate.',false);return;}
+  S.fxGbpUsd=v;
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  toast('Exchange rate saved — £1 = $'+v.toFixed(2)+'.');
+}
+
+// SPEND PANEL
+function saveWeeklyTarget(){
+  const v=parseFloat(document.getElementById('weekly-target-input').value);
+  if(!v||v<=0){toast('Enter a valid weekly target.',false);renderSpendPanel();return;}
+  S.weeklyTarget=v;
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();
+  toast('Weekly target updated for the whole team.');
+}
+
+function renderSpendPanel(){
+  const panel=document.getElementById('target-breakdown');
+  if(!panel)return;
+  const target=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
+  const cur=S.currency||'$';
+  document.getElementById('target-cur').textContent=cur;
+  const tEl=document.getElementById('weekly-target-input');
+  if(document.activeElement!==tEl)tEl.value=target;
+  document.getElementById('target-monthly').textContent='≈ '+fmt(target*52/12)+' per month · '+fmt(target*52)+' per year';
+
+  // This week's progress (income logged in the last 7 days)
+  const weekAgo=new Date(Date.now()-6*86400000).toISOString().split('T')[0];
+  const weekIn=S.transactions.filter(t=>t.type==='income'&&t.date>=weekAgo).reduce((s,t)=>s+t.amount,0);
+  const pctOf=target>0?Math.min(weekIn/target*100,100):0;
+  const fill=document.getElementById('week-progress-fill');
+  fill.style.width=pctOf+'%';
+  fill.className='progress-fill'+(weekIn>=target?' hit':'');
+  document.getElementById('week-progress-label').textContent=
+    weekIn>=target
+      ? '✓ Target hit — '+fmt(weekIn)+' logged in the last 7 days'
+      : fmt(weekIn)+' logged in the last 7 days — '+fmt(target-weekIn)+' to go ('+Math.round(pctOf)+'%)';
+
+  // What hitting the target funds each week
+  const taxPct=S.taxPct!==undefined?S.taxPct:TAX_DEFAULT;
+  const taxAmt=target*taxPct/100;
+  const afterTax=target-taxAmt;
+  const potRow=(color,name,pct,wk)=>`<div class="sp-row">
+    <div class="sp-name"><div class="dot-badge" style="background:${color}"></div><span>${name} (${pct}%)</span></div>
+    <div class="sp-amt">${fmt(wk)}<small>${fmt(wk*52/12)}/mo</small></div>
+  </div>`;
+  panel.innerHTML=
+    (taxPct>0?potRow('#5B9BD5','Tax provision',taxPct,taxAmt):'')+
+    S.allocations.filter(p=>p.key!=='tax').map(p=>potRow(p.color,p.name,p.pct,afterTax*p.pct/100)).join('');
+
+  // Commitments (from the Commitments page, converted to $)
+  if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+  const subs=S.subscriptions||[];
+  const subsMo=subs.reduce((s,x)=>s+x.cost,0);
+  const owedOut=(S.owed||[]).filter(o=>!o.repaid).reduce((s,o)=>s+o.amount,0);
+  const ct=commitTotals();
+  const headroom=target-ct.wk;
+  const catRows=CAT_ORDER.filter(c=>ct.cats[c]).map(c=>`
+    <div class="sp-row"><div class="sp-name"><span>${CAT_LABELS[c]}</span></div>
+      <div class="sp-amt">${fmtC(ct.cats[c].wk,'$')}/wk<small>${fmtC(ct.cats[c].mo,'$')}/mo</small></div></div>`).join('');
+  document.getElementById('commitments-panel').innerHTML=catRows+`
+    <div class="sp-row"><div class="sp-name"><span>Money owed (outstanding)</span></div>
+      <div class="sp-amt${owedOut>0?' neg':''}">${owedOut>0?fmt(owedOut):'—'}<small>one-off repayments due</small></div></div>
+    <div class="sp-total"><span>Committed</span><span class="sp-amt">${fmtC(ct.wk,'$')}/wk</span></div>
+    <div class="sp-total" style="border-top:none;padding-top:4px;"><span>Headroom at target</span>
+      <span class="sp-amt" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}/wk</span></div>
+    <div class="sp-note">Salaries include pension on top. £ converted at $${(S.fxGbpUsd||FX_DEFAULT).toFixed(2)} — edit on the Commitments page.${subsMo>0?` Tracked subscriptions currently ${fmt(subsMo)}/mo.`:''}</div>`;
+
+  // Safe to spend: pot balance minus a month of subs charged to that pot; total also holds back owed
+  const subsByPot={};
+  subs.forEach(x=>{subsByPot[x.pot]=(subsByPot[x.pot]||0)+x.cost;});
+  let totalFree=0;
+  const spendRows=S.allocations.filter(p=>p.key!=='tax').map(p=>{
+    const reserved=subsByPot[p.key]||0;
+    const free=pot(p.key)-reserved;
+    totalFree+=free;
+    return`<div class="sp-row">
+      <div class="sp-name"><div class="dot-badge" style="background:${p.color}"></div><span>${p.name}</span></div>
+      <div class="sp-amt${free<0?' neg':''}">${fmtS(free)}${reserved>0?`<small>${fmt(reserved)} held for subs</small>`:''}</div>
+    </div>`;
+  }).join('');
+  const netFree=totalFree-owedOut;
+  document.getElementById('spendable-panel').innerHTML=spendRows+
+    `<div class="sp-total"><span>Total spendable</span><span class="sp-amt${netFree<0?' neg':''}">${fmtS(netFree)}</span></div>`+
+    (owedOut>0?`<div class="sp-note" style="margin-top:4px;">Includes ${fmt(owedOut)} held back to repay money owed.</div>`:'');
+
+  renderMotionPanel();
+  renderRunway();
+}
+
+let incomeMode='all';
+
+function setIncomeMode(mode){
+  incomeMode=mode;
+  const allBtn=document.getElementById('mode-all-btn');
+  const customBtn=document.getElementById('mode-custom-btn');
+  const customSection=document.getElementById('custom-pots-section');
+  const sub=document.getElementById('income-sub');
+  if(mode==='all'){
+    allBtn.className='btn btn-primary btn-sm';
+    customBtn.className='btn btn-ghost btn-sm';
+    customSection.style.display='none';
+    sub.textContent='Revenue is split across all pots automatically';
+  }else{
+    allBtn.className='btn btn-ghost btn-sm';
+    customBtn.className='btn btn-primary btn-sm';
+    customSection.style.display='block';
+    sub.textContent='Choose which pots to receive this income';
+    renderPotCheckboxes();
+  }
+  previewDist();
+}
+
+function renderPotCheckboxes(){
+  const container=document.getElementById('pot-checkboxes');
+  container.innerHTML=S.allocations.map(p=>`
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:rgba(255,255,255,0.03);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px;color:var(--paper);">
+      <input type="checkbox" id="chk-${p.key}" checked onchange="previewDist()" style="width:14px;height:14px;accent-color:var(--gold);cursor:pointer;flex-shrink:0;">
+      <div class="dot-badge" style="background:${p.color};width:8px;height:8px;border-radius:2px;flex-shrink:0;"></div>
+      ${p.name} <span style="color:var(--muted);font-size:11px;margin-left:auto;">${p.pct}%</span>
+    </label>`).join('');
+}
+
+function selectAllPots(val){
+  S.allocations.forEach(p=>{
+    const el=document.getElementById('chk-'+p.key);
+    if(el)el.checked=val;
+  });
+  previewDist();
+}
+
+function getSelectedPots(){
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
+  if(incomeMode==='all')return allocs;
+  return allocs.filter(p=>{
+    const el=document.getElementById('chk-'+p.key);
+    return el&&el.checked;
+  });
+}
+
 function previewDist(){
   const amt=parseFloat(document.getElementById('inc-amount').value);
   const p=document.getElementById('dist-preview');
   const rows=document.getElementById('dist-rows');
+  const unallocEl=document.getElementById('dist-unallocated');
   if(!amt||amt<=0){p.style.display='none';return;}
+  const selected=getSelectedPots();
+  if(!selected.length){p.style.display='none';return;}
   p.style.display='block';
-  rows.innerHTML=S.allocations.map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(amt*a.pct/100)}</span></div>`).join('');
+  const taxRate=(S.taxPct!==undefined?S.taxPct:TAX_DEFAULT)/100;
+  const taxAmt=parseFloat((amt*taxRate).toFixed(2));
+  const afterTax=parseFloat((amt-taxAmt).toFixed(2));
+  let header=taxRate>0?`<div class="dist-row" style="border-bottom:1px solid rgba(168,149,106,0.2);padding-bottom:6px;margin-bottom:4px;">
+    <span style="color:#5B9BD5;">Tax provision (${S.taxPct||0}%)</span><span style="color:#5B9BD5;">−${fmt(taxAmt)}</span></div>
+  <div class="dist-row" style="padding-bottom:6px;margin-bottom:4px;"><span style="color:var(--muted);">After-tax to distribute</span><span>${fmt(afterTax)}</span></div>`:'';
+  if(incomeMode==='all'){
+    rows.innerHTML=header+S.allocations.filter(a=>a.key!=='tax').map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(afterTax*a.pct/100)}</span></div>`).join('');
+    unallocEl.style.display='none';
+  }else{
+    const totalPct=selected.reduce((s,a)=>s+a.pct,0);
+    rows.innerHTML=header+selected.map(a=>{
+      const share=totalPct>0?parseFloat((afterTax*a.pct/totalPct).toFixed(2)):0;
+      return`<div class="dist-row"><span>${a.name} (${a.pct}% → ${totalPct>0?Math.round(a.pct/totalPct*100):0}% of selected)</span><span>+${fmt(share)}</span></div>`;
+    }).join('');
+    const allNonTax=S.allocations.filter(a=>a.key!=='tax');
+    const unselected=allNonTax.filter(a=>!selected.find(s=>s.key===a.key));
+    if(unselected.length){
+      unallocEl.style.display='block';
+      unallocEl.textContent=`⚠ ${unselected.map(a=>a.name).join(', ')} will receive nothing from this income entry.`;
+    }else{
+      unallocEl.style.display='none';
+    }
+  }
 }
 
 function addIncome(){
@@ -590,20 +1497,44 @@ function addIncome(){
   const date=document.getElementById('inc-date').value;
   const note=document.getElementById('inc-note').value||'Revenue';
   if(!amount||amount<=0||!date){toast('Enter a valid amount and date.',false);return;}
+  const selected=getSelectedPots();
+  if(!selected.length){toast('Please select at least one pot.',false);return;}
+  const taxRate=(S.taxPct!==undefined?S.taxPct:TAX_DEFAULT)/100;
+  const taxAmt=parseFloat((amount*taxRate).toFixed(2));
+  const afterTax=parseFloat((amount-taxAmt).toFixed(2));
   const potsSnap={};
-  S.allocations.forEach(p=>{
-    const share=parseFloat((amount*p.pct/100).toFixed(2));
-    S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
-    potsSnap[p.key]=share;
-  });
-  S.transactions.push({id:uid(),type:'income',amount,date,note,pots:potsSnap});
+  // Tax pot (skipped entirely while the provision is 0)
+  if(taxAmt>0){
+    S.pots['tax']=parseFloat(((S.pots['tax']||0)+taxAmt).toFixed(2));
+    potsSnap['tax']=taxAmt;
+  }
+  // Allocate after-tax to pots
+  if(incomeMode==='all'){
+    S.allocations.filter(p=>p.key!=='tax').forEach(p=>{
+      const share=parseFloat((afterTax*p.pct/100).toFixed(2));
+      S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
+      potsSnap[p.key]=share;
+    });
+  }else{
+    const totalPct=selected.reduce((s,a)=>s+a.pct,0);
+    selected.forEach(p=>{
+      const share=totalPct>0?parseFloat((afterTax*p.pct/totalPct).toFixed(2)):0;
+      S.pots[p.key]=parseFloat(((S.pots[p.key]||0)+share).toFixed(2));
+      potsSnap[p.key]=share;
+    });
+  }
+  S.transactions.push({id:uid(),type:'income',amount,date,note,pots:potsSnap,mode:incomeMode});
   S.lastUpdated=new Date().toISOString();
   saveToBin();render();
+  clearIncome();
+  toast(incomeMode==='all'?'Revenue distributed — tax deducted first.':'Revenue distributed across selected pots.');
+  nav('overview');
+}
+
+function clearIncome(){
   document.getElementById('inc-amount').value='';
   document.getElementById('inc-note').value='';
   document.getElementById('dist-preview').style.display='none';
-  toast('Revenue distributed across all pots.');
-  nav('overview');
 }
 
 function addExpense(){
@@ -628,6 +1559,9 @@ function deleteTxn(id){
   if(!t)return;
   if(t.type==='income'){
     S.allocations.forEach(p=>{const sh=t.pots?.[p.key]||0;S.pots[p.key]=parseFloat(((S.pots[p.key]||0)-sh).toFixed(2));});
+  }else if(t.type==='transfer'){
+    S.pots[t.fromPot]=parseFloat(((S.pots[t.fromPot]||0)+t.amount).toFixed(2));
+    S.pots[t.toPot]=parseFloat(((S.pots[t.toPot]||0)-t.amount).toFixed(2));
   }else{
     S.pots[t.pot]=parseFloat(((S.pots[t.pot]||0)+t.amount).toFixed(2));
   }
@@ -638,20 +1572,44 @@ function deleteTxn(id){
 }
 
 function saveAllocations(){
+  const taxVal=parseFloat(document.getElementById('sp-tax-pct')?.value)||0;
+  S.taxPct=taxVal;
+  const allocs=S.allocations.filter(p=>p.key!=='tax');
   let total=0;
-  S.allocations.forEach(p=>{
+  allocs.forEach(p=>{
     const v=parseFloat(document.getElementById('sp-'+p.key)?.value)||0;
-    p.pct=v;total+=v;
+    const n=document.getElementById('sn-'+p.key)?.value.trim()||p.name;
+    p.pct=v;p.name=n;total+=v;
   });
-  if(total!==100){toast('Allocations must total 100%. Currently '+total+'%.',false);return;}
+  if(Math.abs(total-100)>0.1){toast('Pot allocations must total 100%. Currently '+Math.round(total*10)/10+'%.',false);return;}
   S.lastUpdated=new Date().toISOString();
   saveToBin();render();
   toast('Allocations saved.');
 }
 
 function resetAllocations(){
-  POT_DEFAULTS.forEach(d=>{const el=document.getElementById('sp-'+d.key);if(el)el.value=d.pct;});
-  updateSettingsTotal();
+  if(!confirm('Reset all pots to defaults? Names and percentages will reset but balances are unchanged.'))return;
+  S.taxPct=TAX_DEFAULT;
+  S.allocations=POT_DEFAULTS.map(p=>({...p}));
+  renderSettings();
+  toast('Reset to defaults.');
+}
+
+function addNewPot(){
+  const key='pot_'+Math.random().toString(36).slice(2,8);
+  const colors=['#6B4E2A','#2A4A3A','#2A3A5A','#4A2A5A','#5A4A2A'];
+  const color=colors[S.allocations.length%colors.length];
+  S.allocations.push({key,name:'New pot',pct:0,color});
+  renderSettings();
+  const ni=document.getElementById('sn-'+key);
+  if(ni){ni.focus();ni.select();}
+}
+
+function deletePot(key){
+  if(!confirm('Delete this pot? Any balance will remain stored but unallocated.'))return;
+  S.allocations=S.allocations.filter(p=>p.key!==key);
+  renderSettings();
+  toast('Pot removed.');
 }
 
 function saveCurrency(){
@@ -676,13 +1634,18 @@ function resetAll(){
 function nav(name){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
-  const pages=['overview','income','expense','ledger','settings'];
+  const pages=['overview','income','expense','ledger','transfer','subscriptions','commitments','owed','settings'];
   const idx=pages.indexOf(name);
   document.querySelectorAll('.nav-item')[idx].classList.add('active');
   document.getElementById('page-'+name).classList.add('active');
   if(name==='expense')renderExpPots();
+  if(name==='transfer'){renderTransferPots();renderTransferHistory();setTodayDates();}
   if(name==='income'||name==='expense')setTodayDates();
+  if(name==='income'){incomeMode='all';}
   if(name==='ledger')renderLedger();
+  if(name==='subscriptions'){renderSubPots();renderSubscriptions();setTodayDates();}
+  if(name==='commitments')renderCommitments();
+  if(name==='owed'){renderOwed();setTodayDates();}
 }
 
 function setTodayDates(){
@@ -697,6 +1660,229 @@ function toast(msg,ok=true){
   el.style.display='block';
   clearTimeout(el._t);
   el._t=setTimeout(()=>el.style.display='none',3500);
+}
+
+function renderTransferPots(){
+  const taxOpt=`<option value="tax">Tax provision (${fmtS(pot('tax'))})</option>`;
+  const opts=taxOpt+S.allocations.filter(p=>p.key!=='tax').map(p=>`<option value="${p.key}">${p.name} (${fmtS(pot(p.key))})</option>`).join('');
+  document.getElementById('tr-from').innerHTML=opts;
+  document.getElementById('tr-to').innerHTML=opts;
+  if(S.allocations.length>1)document.getElementById('tr-to').selectedIndex=1;
+}
+
+function checkTransferBalance(){
+  const fromKey=document.getElementById('tr-from').value;
+  const amount=parseFloat(document.getElementById('tr-amount').value)||0;
+  const toKey=document.getElementById('tr-to').value;
+  const preview=document.getElementById('tr-preview');
+  const warn=document.getElementById('tr-balance-warn');
+  if(!amount||amount<=0){preview.style.display='none';return;}
+  preview.style.display='block';
+  const fromName=S.allocations.find(p=>p.key===fromKey)?.name||fromKey;
+  const toName=S.allocations.find(p=>p.key===toKey)?.name||toKey;
+  document.getElementById('tr-preview-text').textContent=`Move ${fmt(amount)} from ${fromName} → ${toName}`;
+  const fromBal=pot(fromKey);
+  if(amount>fromBal){
+    warn.style.display='block';
+    document.getElementById('tr-from-bal').textContent=fmtS(fromBal);
+  }else{
+    warn.style.display='none';
+  }
+}
+
+function doTransfer(){
+  const fromKey=document.getElementById('tr-from').value;
+  const toKey=document.getElementById('tr-to').value;
+  const amount=parseFloat(document.getElementById('tr-amount').value);
+  const date=document.getElementById('tr-date').value;
+  const note=document.getElementById('tr-note').value||'Pot transfer';
+  if(!amount||amount<=0||!date){toast('Enter a valid amount and date.',false);return;}
+  if(fromKey===toKey){toast('From and To pots must be different.',false);return;}
+  S.pots[fromKey]=parseFloat(((S.pots[fromKey]||0)-amount).toFixed(2));
+  S.pots[toKey]=parseFloat(((S.pots[toKey]||0)+amount).toFixed(2));
+  S.transactions.push({id:uid(),type:'transfer',amount,date,note,fromPot:fromKey,toPot:toKey});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();renderTransferPots();renderTransferHistory();
+  clearTransfer();
+  toast('Transfer complete.');
+}
+
+function clearTransfer(){
+  document.getElementById('tr-amount').value='';
+  document.getElementById('tr-note').value='';
+  document.getElementById('tr-preview').style.display='none';
+}
+
+function renderTransferHistory(){
+  const el=document.getElementById('transfer-history');
+  const transfers=[...S.transactions].filter(t=>t.type==='transfer').reverse().slice(0,10);
+  if(!transfers.length){el.innerHTML='<div class="empty" style="padding:20px">No transfers yet</div>';return;}
+  el.innerHTML=`<table class="ledger-table" style="width:100%">
+    <thead><tr><th>Date</th><th>From</th><th>To</th><th>Amount</th><th>Note</th><th></th></tr></thead>
+    <tbody>${transfers.map(t=>{
+      const fromName=S.allocations.find(p=>p.key===t.fromPot)?.name||t.fromPot;
+      const toName=S.allocations.find(p=>p.key===t.toPot)?.name||t.toPot;
+      const d=new Date(t.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+      return`<tr>
+        <td style="color:var(--muted);white-space:nowrap">${d}</td>
+        <td style="font-size:12px;color:var(--muted)">${fromName}</td>
+        <td style="font-size:12px;color:var(--muted)">${toName}</td>
+        <td style="font-family:'DM Mono',monospace;color:var(--gold)">${fmt(t.amount)}</td>
+        <td style="font-size:12px;color:var(--muted)">${t.note||'—'}</td>
+        <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteTxn('${t.id}')">Remove</button></td>
+      </tr>`;
+    }).join('')}</tbody>
+  </table>`;
+}
+
+// SUBSCRIPTIONS
+function renderSubPots(){
+  const sel=document.getElementById('sub-pot');
+  if(!sel)return;
+  sel.innerHTML=S.allocations.filter(p=>p.key!=='tax').map(p=>`<option value="${p.key}">${p.name}</option>`).join('');
+  const subsIdx=S.allocations.findIndex(p=>p.key==='subs');
+  if(subsIdx>=0)sel.selectedIndex=subsIdx;
+}
+
+function addSubscription(){
+  const name=document.getElementById('sub-name').value.trim();
+  const cost=parseFloat(document.getElementById('sub-cost').value);
+  const category=document.getElementById('sub-category').value;
+  const pot=document.getElementById('sub-pot').value;
+  const notes=document.getElementById('sub-notes').value.trim();
+  if(!name||!cost||cost<=0){toast('Enter a name and monthly cost.',false);return;}
+  if(!S.subscriptions)S.subscriptions=[];
+  S.subscriptions.push({id:uid(),name,cost,category,pot,notes});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderSubscriptions();renderSpendPanel();
+  document.getElementById('sub-name').value='';
+  document.getElementById('sub-cost').value='';
+  document.getElementById('sub-notes').value='';
+  toast('Subscription added.');
+}
+
+function deleteSubscription(id){
+  if(!confirm('Remove this subscription?'))return;
+  S.subscriptions=(S.subscriptions||[]).filter(s=>s.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderSubscriptions();renderSpendPanel();
+  toast('Subscription removed.');
+}
+
+function renderSubscriptions(){
+  if(!S.subscriptions)S.subscriptions=[];
+  const tbody=document.getElementById('sub-body');
+  if(!tbody)return;
+  if(!S.subscriptions.length){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:24px">No subscriptions yet</div></td></tr>';
+    document.getElementById('sub-total-mo').textContent='—';
+    document.getElementById('sub-total-yr').textContent='—';
+    return;
+  }
+  tbody.innerHTML=S.subscriptions.map(s=>{
+    const potName=S.allocations.find(p=>p.key===s.pot)?.name||s.pot;
+    return`<tr>
+      <td><div style="font-weight:500;color:var(--paper)">${s.name}</div>${s.notes?`<div style="font-size:11px;color:var(--muted);margin-top:2px">${s.notes}</div>`:''}</td>
+      <td><span class="badge" style="background:rgba(168,149,106,0.12);color:var(--gold)">${s.category}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${potName}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--paper)">${fmt(s.cost)}</td>
+      <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${fmt(s.cost*12)}</td>
+      <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteSubscription('${s.id}')">Remove</button></td>
+    </tr>`;
+  }).join('');
+  const totalMo=S.subscriptions.reduce((s,sub)=>s+sub.cost,0);
+  document.getElementById('sub-total-mo').textContent=fmt(totalMo);
+  document.getElementById('sub-total-yr').textContent=fmt(totalMo*12)+'/yr';
+}
+
+// MONEY OWED
+function addOwed(){
+  const who=document.getElementById('owed-who').value.trim();
+  const amount=parseFloat(document.getElementById('owed-amount').value);
+  const date=document.getElementById('owed-date').value;
+  const category=document.getElementById('owed-category').value;
+  const desc=document.getElementById('owed-desc').value.trim();
+  if(!who||!amount||amount<=0||!date){toast('Please fill in all fields.',false);return;}
+  if(!S.owed)S.owed=[];
+  S.owed.push({id:uid(),who,amount,date,category,desc,repaid:false,repaidDate:null});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderOwed();renderSpendPanel();
+  document.getElementById('owed-who').value='';
+  document.getElementById('owed-amount').value='';
+  document.getElementById('owed-desc').value='';
+  toast('Added to money owed.');
+}
+
+function markRepaid(id){
+  if(!S.owed)return;
+  const item=S.owed.find(o=>o.id===id);
+  if(!item)return;
+  item.repaid=true;
+  item.repaidDate=new Date().toISOString().split('T')[0];
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderOwed();renderSpendPanel();
+  toast('Marked as repaid.');
+}
+
+function deleteOwed(id){
+  if(!confirm('Remove this entry?'))return;
+  S.owed=(S.owed||[]).filter(o=>o.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderOwed();renderSpendPanel();
+  toast('Entry removed.');
+}
+
+function renderOwed(){
+  if(!S.owed)S.owed=[];
+  const filterSel=document.getElementById('owed-filter');
+  if(!filterSel)return;
+  const filterVal=filterSel.value;
+  const people=[...new Set(S.owed.map(o=>o.who))];
+  const curFilter=filterSel.value;
+  filterSel.innerHTML='<option value="all">Everyone</option>'+people.map(p=>`<option value="${p}"${curFilter===p?' selected':''}>${p}</option>`).join('');
+
+  const outstanding=S.owed.filter(o=>!o.repaid&&(filterVal==='all'||o.who===filterVal));
+  const repaid=S.owed.filter(o=>o.repaid&&(filterVal==='all'||o.who===filterVal));
+
+  const tbody=document.getElementById('owed-body');
+  if(!outstanding.length){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:20px">Nothing outstanding 🎉</div></td></tr>';
+  }else{
+    tbody.innerHTML=outstanding.map(o=>{
+      const d=new Date(o.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+      return`<tr>
+        <td style="color:var(--muted);white-space:nowrap">${d}</td>
+        <td style="font-weight:500;color:var(--paper)">${o.who}</td>
+        <td>${o.desc||'—'}</td>
+        <td><span class="badge" style="background:var(--red-bg);color:#E57373">${o.category}</span></td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:#E57373;font-weight:500">${fmt(o.amount)}</td>
+        <td style="display:flex;gap:4px;flex-wrap:wrap;">
+          <button class="btn btn-ghost btn-sm" style="color:#81C784;border-color:rgba(46,125,50,0.3)" onclick="markRepaid('${o.id}')">Repaid</button>
+          <button class="btn btn-ghost btn-sm btn-danger" onclick="deleteOwed('${o.id}')">Remove</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+  const total=outstanding.reduce((s,o)=>s+o.amount,0);
+  document.getElementById('owed-total').textContent=outstanding.length?fmt(total):'—';
+
+  const repaidBody=document.getElementById('owed-repaid-body');
+  if(!repaid.length){
+    repaidBody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:16px">No repayments yet</div></td></tr>';
+  }else{
+    repaidBody.innerHTML=repaid.map(o=>{
+      const d=new Date(o.date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'});
+      const rd=o.repaidDate?new Date(o.repaidDate+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'2-digit'}):'—';
+      return`<tr style="opacity:0.6">
+        <td style="color:var(--muted);white-space:nowrap">${d}</td>
+        <td>${o.who}</td>
+        <td>${o.desc||'—'}</td>
+        <td style="color:var(--muted)">${rd}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${fmt(o.amount)}</td>
+        <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteOwed('${o.id}')">Remove</button></td>
+      </tr>`;
+    }).join('');
+  }
 }
 
 // AUTO-LOGIN

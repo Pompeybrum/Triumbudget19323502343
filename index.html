@@ -118,6 +118,25 @@ select option{background:#1a1816;color:var(--paper)}
 /* EMPTY */
 .empty{text-align:center;padding:48px 24px;color:var(--muted);font-size:14px}
 .empty-icon{font-size:32px;margin-bottom:10px;opacity:0.4}
+/* SPEND PANEL (overview right column) */
+#page-overview{max-width:1300px}
+.overview-cols{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:20px;align-items:start}
+.spend-panel .card{padding:16px 18px;margin-bottom:12px}
+.sp-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:5px 0;font-size:12px;color:var(--muted);border-bottom:1px solid rgba(255,255,255,0.04)}
+.sp-row:last-child{border-bottom:none}
+.sp-row .sp-name{display:flex;align-items:center;gap:7px;min-width:0}
+.sp-row .sp-name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sp-amt{font-family:'DM Mono',monospace;color:var(--paper);white-space:nowrap;text-align:right}
+.sp-amt small{display:block;font-size:10px;color:var(--muted);font-family:'DM Sans',sans-serif}
+.sp-amt.neg{color:#E57373}
+.sp-total{display:flex;justify-content:space-between;align-items:baseline;padding-top:9px;margin-top:6px;border-top:1px solid var(--border);font-size:12px;color:var(--paper);font-weight:500}
+.sp-note{font-size:11px;color:var(--muted);margin-top:9px;line-height:1.5}
+.progress-track{height:6px;background:rgba(255,255,255,0.07);border-radius:3px;overflow:hidden;margin-top:12px}
+.progress-fill{height:100%;background:var(--gold);border-radius:3px;transition:width 0.3s}
+.progress-fill.hit{background:var(--green)}
+.target-wrap{display:flex;align-items:center;gap:8px}
+.target-wrap .cur{font-family:'DM Mono',monospace;font-size:18px;color:var(--gold)}
+.target-wrap input{font-family:'DM Mono',monospace;font-size:18px;font-weight:500;padding:8px 12px}
 /* MOBILE */
 @media(max-width:700px){
   .app{grid-template-columns:1fr}
@@ -131,6 +150,7 @@ select option{background:#1a1816;color:var(--paper)}
   .form-grid,.form-grid-3{grid-template-columns:1fr}
   .pots-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))}
   .metrics{grid-template-columns:1fr 1fr}
+  .overview-cols{grid-template-columns:1fr}
   .toast{bottom:76px;right:12px;left:12px}
   .ledger-table th:nth-child(3),.ledger-table td:nth-child(3){display:none}
 }
@@ -184,6 +204,7 @@ select option{background:#1a1816;color:var(--paper)}
     <div class="nav-item" onclick="nav('transfer')"><span class="nav-icon">⇄</span> Transfer</div>
     <div class="nav-section">Admin</div>
     <div class="nav-item" onclick="nav('subscriptions')"><span class="nav-icon">↻</span> Subscriptions</div>
+    <div class="nav-item" onclick="nav('commitments')"><span class="nav-icon">▤</span> Commitments</div>
     <div class="nav-item" onclick="nav('owed')"><span class="nav-icon">$</span> Money owed</div>
     <div class="nav-item" onclick="nav('settings')"><span class="nav-icon">⚙</span> Settings</div>
     <div class="sidebar-footer">
@@ -204,19 +225,84 @@ select option{background:#1a1816;color:var(--paper)}
         <div class="page-title">Overview</div>
         <div class="page-sub" id="overview-sub">Loading…</div>
       </div>
-      <div class="pots-grid" id="pots-grid"></div>
-      <div class="metrics" id="metrics-row"></div>
-      <div class="card">
-        <div class="card-label">Bank reconciliation</div>
-        <div class="form-grid" style="margin-bottom:0;">
-          <div class="form-group">
-            <label class="form-label">Your actual bank balance</label>
-            <input type="number" id="bank-actual" placeholder="0.00" step="0.01" oninput="reconcile()">
-          </div>
-          <div style="display:flex;align-items:flex-end;">
-            <div id="reconcile-result" class="reconcile-result" style="width:100%;display:flex;align-items:center;"></div>
+      <div class="overview-cols">
+        <div>
+          <div class="pots-grid" id="pots-grid"></div>
+          <div class="metrics" id="metrics-row"></div>
+          <div class="card">
+            <div class="card-label">Bank reconciliation</div>
+            <div class="form-grid" style="margin-bottom:0;">
+              <div class="form-group">
+                <label class="form-label">Your actual bank balance</label>
+                <input type="number" id="bank-actual" placeholder="0.00" step="0.01" oninput="reconcile()">
+              </div>
+              <div style="display:flex;align-items:flex-end;">
+                <div id="reconcile-result" class="reconcile-result" style="width:100%;display:flex;align-items:center;"></div>
+              </div>
+            </div>
           </div>
         </div>
+
+        <aside class="spend-panel">
+          <div class="card">
+            <div class="card-label">Weekly revenue target</div>
+            <div class="target-wrap">
+              <span class="cur" id="target-cur">$</span>
+              <input type="number" id="weekly-target-input" step="100" min="0" onchange="saveWeeklyTarget()">
+            </div>
+            <div class="sp-note" id="target-monthly" style="margin-top:6px;"></div>
+            <div class="progress-track"><div class="progress-fill" id="week-progress-fill" style="width:0%"></div></div>
+            <div class="sp-note" id="week-progress-label" style="margin-top:6px;"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Hitting target funds — per week</div>
+            <div id="target-breakdown"></div>
+            <div class="sp-note">Weekly amounts when the target is hit. Smaller figure is the monthly equivalent.</div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Commitments</div>
+            <div id="commitments-panel"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Runway</div>
+            <div class="form-grid" style="gap:10px;margin-bottom:10px;">
+              <div class="form-group">
+                <label class="form-label">Cash available</label>
+                <input type="number" id="rw-cash" step="100" oninput="this.dataset.dirty=this.value?'1':'';renderRunway()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Earnings / week</label>
+                <input type="number" id="rw-earn" step="100" oninput="this.dataset.dirty=this.value?'1':'';renderRunway()">
+              </div>
+            </div>
+            <div id="rw-output"></div>
+            <div class="form-grid" style="gap:10px;margin:12px 0 4px;">
+              <div class="form-group">
+                <label class="form-label">Goal amount</label>
+                <input type="number" id="rw-goal" step="1000" placeholder="e.g. 100000" oninput="renderRunway()">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Within (weeks)</label>
+                <input type="number" id="rw-goal-weeks" step="1" min="1" placeholder="e.g. 26" oninput="renderRunway()">
+              </div>
+            </div>
+            <div id="rw-goal-output" class="sp-note"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Motion savings</div>
+            <div id="motion-panel"></div>
+          </div>
+
+          <div class="card">
+            <div class="card-label">Safe to spend now</div>
+            <div id="spendable-panel"></div>
+            <div class="sp-note">Pot balance minus one month of subscriptions charged to that pot. Total also holds back money owed. Tax provision excluded.</div>
+          </div>
+        </aside>
       </div>
     </div>
 
@@ -455,6 +541,126 @@ select option{background:#1a1816;color:var(--paper)}
       </div>
     </div>
 
+    <!-- COMMITMENTS -->
+    <div id="page-commitments" class="page">
+      <div class="page-header">
+        <div class="page-title">Commitments</div>
+        <div class="page-sub">Fixed outgoings — salaries, prize pot and operating costs. £ amounts are converted to $ at your exchange rate.</div>
+      </div>
+      <div class="metrics" id="commit-metrics"></div>
+      <div class="card">
+        <div class="card-label">Add a commitment</div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" id="cm-name" placeholder="e.g. New hire — salary">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Category</label>
+            <select id="cm-cat">
+              <option value="team">Team payroll</option>
+              <option value="prize">Prize pot</option>
+              <option value="subs">Subscriptions</option>
+              <option value="ops">Operations</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Amount</label>
+            <input type="number" id="cm-amount" placeholder="0.00" step="0.01">
+          </div>
+        </div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Currency</label>
+            <select id="cm-cur">
+              <option value="USD">$ USD</option>
+              <option value="GBP">£ GBP</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Frequency</label>
+            <select id="cm-freq">
+              <option value="monthly">Per month</option>
+              <option value="weekly">Per week</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Pension on top (%)</label>
+            <input type="number" id="cm-pension" placeholder="0" step="0.5" min="0" value="0">
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="addCommitment()">Add commitment</button>
+      </div>
+      <div class="card">
+        <div class="card-label">GBP → USD exchange rate</div>
+        <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;">
+          <div class="form-group" style="width:110px;">
+            <input type="number" id="fx-rate" step="0.01" min="0.5" style="text-align:right;font-family:'DM Mono',monospace;">
+          </div>
+          <button class="btn btn-primary" onclick="saveFx()">Save rate</button>
+          <span style="font-size:12px;color:var(--muted);">£1 = $<span id="fx-preview">—</span> · used to convert salaries and rent</span>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-label">Earn interest &amp; Motion savings</div>
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label class="form-label">Earn rate (% APY)</label>
+            <input type="number" id="ey-apy" step="0.1" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Funds in earn (%)</label>
+            <input type="number" id="ey-pct" step="1" min="0" max="100">
+          </div>
+          <div class="form-group">
+            <label class="form-label">SOL per day → Motion</label>
+            <input type="number" id="mo-solday" step="0.1" min="0">
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:14px;">
+          <label class="form-label">Motion wallet address (fetched live from fraudsworth.fyi)</label>
+          <input type="text" id="mo-wallet" style="font-family:'DM Mono',monospace;font-size:12px;">
+        </div>
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">SOL in Motion (fallback if live feed is down)</label>
+            <input type="number" id="mo-sol" step="0.01" min="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">SOL price $ (fallback)</label>
+            <input type="number" id="mo-solprice" step="0.01" min="0">
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-primary" onclick="saveTreasury()">Save savings settings</button>
+          <span style="font-size:12px;color:var(--muted);" id="treasury-live"></span>
+        </div>
+      </div>
+      <div class="card" style="padding:0;overflow:hidden;">
+        <table class="ledger-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th style="text-align:right;">Weekly $</th>
+              <th style="text-align:right;">Monthly $</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="commit-body"></tbody>
+          <tfoot>
+            <tr style="border-top:1px solid var(--border);">
+              <td colspan="3" style="padding:12px 10px;font-size:13px;font-weight:500;color:var(--paper);">Total</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--gold);" id="commit-total-wk">—</td>
+              <td style="text-align:right;padding:12px 10px;font-family:'DM Mono',monospace;font-size:14px;font-weight:500;color:var(--gold);" id="commit-total-mo">—</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+
     <!-- MONEY OWED -->
     <div id="page-owed" class="page">
       <div class="page-header">
@@ -597,7 +803,10 @@ select option{background:#1a1816;color:var(--paper)}
 <div id="toast" class="toast"></div>
 
 <script>
-const TAX_DEFAULT=10;
+const TAX_DEFAULT=0;
+const EARN_DEFAULT={apy:3.5,pct:90};
+const MOTION_DEFAULT={wallet:'sYiM8x9PW5raAXmtwb1mpV9aKDzgy3zr43qPwaUxJsE',sol:65,solPerDay:1.5,solPrice:104};
+const FW_BASE='https://www.fraudsworth.fyi';
 const POT_DEFAULTS=[
   {key:'eng',   name:'Engineering/staff', pct:20,color:'#8B1A2E'},
   {key:'prize', name:'Prize pool seed',   pct:35,color:'#A8956A'},
@@ -609,7 +818,23 @@ const POT_DEFAULTS=[
   {key:'treas', name:'Treasury',          pct:14,color:'#1C1C1A'},
 ];
 
-const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT};
+const WEEKLY_TARGET_DEFAULT=15000;
+const FX_DEFAULT=1.35;
+const CAT_LABELS={team:'Team payroll',prize:'Prize pot',subs:'Subscriptions',ops:'Operations'};
+const CAT_ORDER=['team','prize','subs','ops'];
+const COMMIT_DEFAULTS=[
+  {id:'c-tim',   name:'Tim — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-jon',   name:'Jon — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-joe',   name:'Joe — salary',        cat:'team', amount:2900,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-jason', name:'Jason — salary',      cat:'team', amount:1915,cur:'GBP',freq:'monthly',pensionPct:5},
+  {id:'c-seishu',name:'Seishu',              cat:'team', amount:100, cur:'USD',freq:'weekly', pensionPct:0},
+  {id:'c-lendy', name:'Lendy',               cat:'team', amount:100, cur:'USD',freq:'weekly', pensionPct:0},
+  {id:'c-prize', name:'Prize pot',           cat:'prize',amount:8000,cur:'USD',freq:'weekly', pensionPct:0},
+  {id:'c-subs',  name:'Subscriptions (est.)',cat:'subs', amount:6000,cur:'USD',freq:'monthly',pensionPct:0},
+  {id:'c-legal', name:'Legal',               cat:'ops',  amount:1500,cur:'USD',freq:'monthly',pensionPct:0},
+  {id:'c-rent',  name:'Rent',                cat:'ops',  amount:500, cur:'GBP',freq:'monthly',pensionPct:0},
+];
+const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
 
 let S=JSON.parse(JSON.stringify(EMPTY_STATE));
 let API_KEY='';
@@ -642,6 +867,12 @@ async function loadFromBin(){
     if(!S.pots)S.pots={};
     if(!S.transactions)S.transactions=[];
     if(!S.currency)S.currency='$';
+    if(!S.weeklyTarget)S.weeklyTarget=WEEKLY_TARGET_DEFAULT;
+    if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+    if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
+    if(!S.earn)S.earn={...EARN_DEFAULT};
+    if(!S.motion)S.motion={...MOTION_DEFAULT};
+    if(!S.taxRemoved){S.taxPct=0;S.taxRemoved=true;}
     setSyncStatus('ok','Synced');
     render();
   }catch(e){
@@ -686,6 +917,12 @@ async function setupConnect(){
     if(!S.pots)S.pots={};
     if(!S.transactions)S.transactions=[];
     if(!S.currency)S.currency='$';
+    if(!S.weeklyTarget)S.weeklyTarget=WEEKLY_TARGET_DEFAULT;
+    if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+    if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
+    if(!S.earn)S.earn={...EARN_DEFAULT};
+    if(!S.motion)S.motion={...MOTION_DEFAULT};
+    if(!S.taxRemoved){S.taxPct=0;S.taxRemoved=true;}
     localStorage.setItem('pa-key',API_KEY);
     localStorage.setItem('pa-bin',BIN_ID);
     launchApp();
@@ -703,6 +940,7 @@ function launchApp(){
   document.getElementById('bin-id-copy').value=BIN_ID;
   setTodayDates();
   render();
+  refreshLive();
   setSyncStatus('ok','Connected');
   // Auto-refresh every 5 minutes, but only while the tab is actually visible.
   // Background tabs no longer poll, which is what was burning through the JSONBin free tier.
@@ -714,6 +952,7 @@ function launchApp(){
 function manualRefresh(){
   if(syncing){ toast('Hang on — a save is still in progress.',false); return; }
   loadFromBin();
+  refreshLive();
 }
 
 function fmt(n){
@@ -727,7 +966,7 @@ function uid(){return Math.random().toString(36).slice(2)+Date.now().toString(36
 function pot(key){return S.pots[key]||0;}
 
 function render(){
-  renderPots();renderMetrics();renderExpPots();renderLedger();renderSettings();
+  renderPots();renderMetrics();renderExpPots();renderLedger();renderSettings();renderSpendPanel();
   document.getElementById('overview-sub').textContent='Last updated: '+(S.lastUpdated?new Date(S.lastUpdated).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'never');
   document.getElementById('currency-input').value=S.currency||'$';
   document.getElementById('bin-id-copy').value=BIN_ID;
@@ -736,11 +975,11 @@ function render(){
 
 function renderPots(){
   const taxBal=pot('tax');
-  const taxCard=`<div class="pot-card" style="--pot-color:#5B9BD5">
+  const taxCard=(taxBal!==0||(S.taxPct||0)>0)?`<div class="pot-card" style="--pot-color:#5B9BD5">
     <div class="pot-name">Tax provision</div>
     <div class="pot-balance${taxBal<0?' neg':''}">${fmtS(taxBal)}</div>
-    <div class="pot-alloc">${S.taxPct||TAX_DEFAULT}% off top</div>
-  </div>`;
+    <div class="pot-alloc">${S.taxPct||0}% off top</div>
+  </div>`:'';
   const otherCards=S.allocations.filter(p=>p.key!=='tax').map(p=>{
     const b=pot(p.key);
     return`<div class="pot-card" style="--pot-color:${p.color}">
@@ -839,6 +1078,335 @@ function reconcile(){
   }
 }
 
+// LIVE DATA — SOL price, Motion (ex-PROFIT) token price, and staked balance from fraudsworth.fyi
+let LIVE={solUsd:null,motionUsd:null,motionChange:null,stakedSol:null,fetchedAt:null,err:false};
+
+async function fetchJsonMaybeProxy(url){
+  try{
+    const r=await fetch(url);
+    if(r.ok)return await r.json();
+  }catch(e){/* CORS or network — fall through to proxy */}
+  const r2=await fetch('https://api.allorigins.win/raw?url='+encodeURIComponent(url));
+  if(!r2.ok)throw new Error('live feed unavailable');
+  return r2.json();
+}
+
+async function refreshLive(){
+  try{
+    const pool=await fetchJsonMaybeProxy(FW_BASE+'/api/solana/pool-state');
+    if(pool.solUsdPrice)LIVE.solUsd=pool.solUsdPrice;
+    if(pool.profit){LIVE.motionUsd=pool.profit.priceUsd;LIVE.motionChange=pool.profit.percentChange;}
+    const w=(S.motion&&S.motion.wallet)||MOTION_DEFAULT.wallet;
+    if(w){
+      const wd=await fetchJsonMaybeProxy(FW_BASE+'/api/wallet/'+encodeURIComponent(w));
+      if(wd.staking&&wd.staking.stakedBalance)LIVE.stakedSol=parseFloat(wd.staking.stakedBalance)/1e9;
+    }
+    LIVE.fetchedAt=new Date();
+    LIVE.err=false;
+  }catch(e){
+    LIVE.err=true;
+  }
+  renderSpendPanel();
+  const cPage=document.getElementById('page-commitments');
+  if(cPage&&cPage.classList.contains('active'))renderCommitments();
+}
+
+function solPriceNow(){return LIVE.solUsd||(S.motion&&S.motion.solPrice)||MOTION_DEFAULT.solPrice;}
+function motionSolNow(){return LIVE.stakedSol!=null?LIVE.stakedSol:((S.motion&&S.motion.sol)||MOTION_DEFAULT.sol);}
+
+// COMMITMENTS
+function fmtC(n,sym){
+  return (n<0?'-':'')+sym+Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+
+// Convert a commitment to USD weekly + monthly figures (pension added on top, £ at the saved rate)
+function commitUSD(c){
+  const rate=S.fxGbpUsd||FX_DEFAULT;
+  const gross=c.amount*(1+(c.pensionPct||0)/100);
+  const usd=c.cur==='GBP'?gross*rate:gross;
+  return c.freq==='weekly'?{wk:usd,mo:usd*52/12}:{wk:usd*12/52,mo:usd};
+}
+
+function commitTotals(){
+  const cats={};let wk=0,mo=0;
+  (S.commitments||[]).forEach(c=>{
+    const u=commitUSD(c);wk+=u.wk;mo+=u.mo;
+    const cat=cats[c.cat]||(cats[c.cat]={wk:0,mo:0});
+    cat.wk+=u.wk;cat.mo+=u.mo;
+  });
+  return{cats,wk,mo};
+}
+
+function renderCommitments(){
+  const tbody=document.getElementById('commit-body');
+  if(!tbody)return;
+  if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+  const rate=S.fxGbpUsd||FX_DEFAULT;
+  const fxEl=document.getElementById('fx-rate');
+  if(document.activeElement!==fxEl)fxEl.value=rate;
+  document.getElementById('fx-preview').textContent=rate.toFixed(2);
+
+  const target=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
+  const t=commitTotals();
+  const headroom=target-t.wk;
+  document.getElementById('commit-metrics').innerHTML=`
+    <div class="metric"><div class="metric-label">Weekly commitments</div><div class="metric-val">${fmtC(t.wk,'$')}</div><div class="metric-sub">converted to $</div></div>
+    <div class="metric"><div class="metric-label">Monthly commitments</div><div class="metric-val">${fmtC(t.mo,'$')}</div></div>
+    <div class="metric"><div class="metric-label">Weekly target</div><div class="metric-val">${fmtC(target,'$')}</div></div>
+    <div class="metric"><div class="metric-label">Headroom at target</div><div class="metric-val" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}<span style="font-size:13px;color:var(--muted)">/wk</span></div><div class="metric-sub">${headroom>=0?'target covers commitments':'target does NOT cover commitments'}</div></div>`;
+
+  const order=c=>{const i=CAT_ORDER.indexOf(c.cat);return i<0?99:i;};
+  const list=[...S.commitments].sort((a,b)=>order(a)-order(b));
+  if(!list.length){
+    tbody.innerHTML='<tr><td colspan="6"><div class="empty" style="padding:24px">No commitments yet</div></td></tr>';
+  }else{
+    tbody.innerHTML=list.map(c=>{
+      const u=commitUSD(c);
+      const sym=c.cur==='GBP'?'£':'$';
+      const amt=fmtC(c.amount,sym)+(c.freq==='weekly'?'/wk':'/mo')+((c.pensionPct||0)>0?` <span style="color:var(--muted);font-size:11px">+${c.pensionPct}% pension</span>`:'');
+      return`<tr>
+        <td style="font-weight:500;color:var(--paper)">${c.name}</td>
+        <td><span class="badge" style="background:rgba(168,149,106,0.12);color:var(--gold)">${CAT_LABELS[c.cat]||c.cat}</span></td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--paper)">${amt}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--paper)">${fmtC(u.wk,'$')}</td>
+        <td style="text-align:right;font-family:'DM Mono',monospace;color:var(--muted)">${fmtC(u.mo,'$')}</td>
+        <td><button class="btn btn-ghost btn-sm btn-danger" onclick="deleteCommitment('${c.id}')">Remove</button></td>
+      </tr>`;
+    }).join('');
+  }
+  document.getElementById('commit-total-wk').textContent=list.length?fmtC(t.wk,'$'):'—';
+  document.getElementById('commit-total-mo').textContent=list.length?fmtC(t.mo,'$'):'—';
+
+  // Earn & Motion settings
+  const e=S.earn||EARN_DEFAULT;
+  const m=S.motion||MOTION_DEFAULT;
+  const setVal=(id,v)=>{const el=document.getElementById(id);if(el&&document.activeElement!==el)el.value=v;};
+  setVal('ey-apy',e.apy);setVal('ey-pct',e.pct);
+  setVal('mo-wallet',m.wallet||'');setVal('mo-sol',m.sol);setVal('mo-solday',m.solPerDay);setVal('mo-solprice',m.solPrice);
+  document.getElementById('treasury-live').textContent=
+    LIVE.fetchedAt&&!LIVE.err
+      ?`Live: SOL $${LIVE.solUsd?LIVE.solUsd.toFixed(2):'—'} · Motion balance ${LIVE.stakedSol!=null?LIVE.stakedSol.toFixed(2)+' SOL':'—'}`
+      :(LIVE.err?'Live feed unavailable — fallback figures in use.':'Fetching live data…');
+}
+
+function addCommitment(){
+  const name=document.getElementById('cm-name').value.trim();
+  const amount=parseFloat(document.getElementById('cm-amount').value);
+  if(!name||!amount||amount<=0){toast('Enter a name and a valid amount.',false);return;}
+  if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+  S.commitments.push({
+    id:uid(),name,
+    cat:document.getElementById('cm-cat').value,
+    amount,
+    cur:document.getElementById('cm-cur').value,
+    freq:document.getElementById('cm-freq').value,
+    pensionPct:parseFloat(document.getElementById('cm-pension').value)||0,
+  });
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  document.getElementById('cm-name').value='';
+  document.getElementById('cm-amount').value='';
+  document.getElementById('cm-pension').value='0';
+  toast('Commitment added.');
+}
+
+function deleteCommitment(id){
+  if(!confirm('Remove this commitment?'))return;
+  S.commitments=(S.commitments||[]).filter(c=>c.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  toast('Commitment removed.');
+}
+
+function saveTreasury(){
+  S.earn={
+    apy:parseFloat(document.getElementById('ey-apy').value)||0,
+    pct:Math.min(100,Math.max(0,parseFloat(document.getElementById('ey-pct').value)||0)),
+  };
+  S.motion={
+    wallet:document.getElementById('mo-wallet').value.trim(),
+    sol:parseFloat(document.getElementById('mo-sol').value)||0,
+    solPerDay:parseFloat(document.getElementById('mo-solday').value)||0,
+    solPrice:parseFloat(document.getElementById('mo-solprice').value)||0,
+  };
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  refreshLive();
+  toast('Savings settings updated.');
+}
+
+// Weekly outgoings beyond the commitments list: SOL paid into Motion, minus earn interest on cash
+function motionOutWk(){
+  const m=S.motion||MOTION_DEFAULT;
+  return (m.solPerDay||0)*7*solPriceNow();
+}
+function earnInterestWk(cash){
+  const e=S.earn||EARN_DEFAULT;
+  return cash*(e.pct/100)*(e.apy/100)/52;
+}
+
+function renderRunway(){
+  const out=document.getElementById('rw-output');
+  if(!out)return;
+  const allPotKeys=['tax',...S.allocations.filter(p=>p.key!=='tax').map(p=>p.key)];
+  const potsTotal=allPotKeys.reduce((s,k)=>s+pot(k),0);
+  const cashEl=document.getElementById('rw-cash');
+  if(document.activeElement!==cashEl&&!cashEl.dataset.dirty)cashEl.value=Math.round(potsTotal*100)/100;
+  const earnEl=document.getElementById('rw-earn');
+  if(document.activeElement!==earnEl&&!earnEl.dataset.dirty)earnEl.value=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
+  const cash=parseFloat(cashEl.value)||0;
+  const earnWk=parseFloat(earnEl.value)||0;
+  const e=S.earn||EARN_DEFAULT;
+  const m=S.motion||MOTION_DEFAULT;
+  const interestWk=earnInterestWk(cash);
+  const motionWk=motionOutWk();
+  const ct=commitTotals();
+  const burnWk=ct.wk+motionWk-interestWk;
+  const netWk=earnWk-burnWk;
+  const row=(label,amt,cls)=>`<div class="sp-row"><div class="sp-name"><span>${label}</span></div><div class="sp-amt${cls||''}">${amt}</div></div>`;
+  let html=
+    row('Earnings','+'+fmtC(earnWk,'$')+'/wk')+
+    row(`Earn interest (${e.apy}% on ${e.pct}%)`,'+'+fmtC(interestWk,'$')+'/wk')+
+    row('Commitments','−'+fmtC(ct.wk,'$')+'/wk')+
+    row(`Motion (${m.solPerDay} SOL/day)`,'−'+fmtC(motionWk,'$')+'/wk')+
+    `<div class="sp-total"><span>Net per week</span><span class="sp-amt${netWk<0?' neg':''}" style="${netWk>=0?'color:#81C784':''}">${netWk>=0?'+':''}${fmtC(netWk,'$')}</span></div>`;
+  if(netWk>=0){
+    html+=`<div class="sp-note">Self-sustaining — funds grow ${fmtC(netWk,'$')} a week at these earnings. Break-even is ${fmtC(burnWk,'$')}/wk.</div>`;
+  }else{
+    const weeks=cash>0?cash/(-netWk):0;
+    const zero=new Date(Date.now()+weeks*7*86400000);
+    html+=`<div class="sp-total" style="border-top:none;padding-top:4px;"><span>Runway left</span><span class="sp-amt${weeks<8?' neg':''}">${weeks.toFixed(1)} wks</span></div>
+      <div class="sp-note">At ${fmtC(earnWk,'$')}/wk earned, funds hit zero around <strong>${zero.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</strong>. Break-even is ${fmtC(burnWk,'$')}/wk.</div>`;
+  }
+  out.innerHTML=html;
+
+  const goal=parseFloat(document.getElementById('rw-goal').value);
+  const gw=parseFloat(document.getElementById('rw-goal-weeks').value);
+  const goalOut=document.getElementById('rw-goal-output');
+  if(goal>0&&gw>0){
+    const needWk=burnWk+(goal-cash)/gw;
+    goalOut.innerHTML=`To reach ${fmtC(goal,'$')} in ${gw} weeks you need to earn <strong style="color:var(--gold)">${fmtC(Math.max(needWk,0),'$')}/wk</strong>.`;
+  }else if(goal>0){
+    if(goal<=cash)goalOut.textContent='Already at that goal.';
+    else if(netWk>0){
+      const w=(goal-cash)/netWk;
+      goalOut.innerHTML=`At the current net, you reach ${fmtC(goal,'$')} in about <strong style="color:var(--gold)">${w.toFixed(1)} weeks</strong>.`;
+    }else goalOut.textContent='Goal is out of reach while the net per week is negative — raise earnings or add a timeframe above.';
+  }else goalOut.innerHTML='';
+}
+
+function renderMotionPanel(){
+  const el=document.getElementById('motion-panel');
+  if(!el)return;
+  const m=S.motion||MOTION_DEFAULT;
+  const solP=solPriceNow();
+  const bal=motionSolNow();
+  const outWk=motionOutWk();
+  const live=LIVE.fetchedAt&&!LIVE.err;
+  const changeTxt=typeof LIVE.motionChange==='number'?`${LIVE.motionChange>=0?'+':''}${LIVE.motionChange}% 24h`:'';
+  el.innerHTML=
+    `<div class="sp-row"><div class="sp-name"><span>Staked balance</span></div><div class="sp-amt">${bal.toFixed(2)} SOL<small>≈ ${fmtC(bal*solP,'$')}</small></div></div>`+
+    `<div class="sp-row"><div class="sp-name"><span>SOL price</span></div><div class="sp-amt">${fmtC(solP,'$')}</div></div>`+
+    (LIVE.motionUsd?`<div class="sp-row"><div class="sp-name"><span>MOTION token (ex-PROFIT)</span></div><div class="sp-amt">$${LIVE.motionUsd.toFixed(4)}<small>${changeTxt}</small></div></div>`:'')+
+    `<div class="sp-row"><div class="sp-name"><span>Paying in</span></div><div class="sp-amt">${m.solPerDay} SOL/day<small>≈ ${fmtC(outWk,'$')}/wk</small></div></div>`+
+    `<div class="sp-note">${live
+      ?`Live from fraudsworth.fyi · wallet ${(m.wallet||'').slice(0,6)}… · updated ${LIVE.fetchedAt.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`
+      :(LIVE.err?'Live feed unavailable — using saved figures from the Commitments page.':'Fetching live data…')}</div>`;
+}
+
+function saveFx(){
+  const v=parseFloat(document.getElementById('fx-rate').value);
+  if(!v||v<=0){toast('Enter a valid exchange rate.',false);return;}
+  S.fxGbpUsd=v;
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();renderCommitments();renderSpendPanel();
+  toast('Exchange rate saved — £1 = $'+v.toFixed(2)+'.');
+}
+
+// SPEND PANEL
+function saveWeeklyTarget(){
+  const v=parseFloat(document.getElementById('weekly-target-input').value);
+  if(!v||v<=0){toast('Enter a valid weekly target.',false);renderSpendPanel();return;}
+  S.weeklyTarget=v;
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();
+  toast('Weekly target updated for the whole team.');
+}
+
+function renderSpendPanel(){
+  const panel=document.getElementById('target-breakdown');
+  if(!panel)return;
+  const target=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
+  const cur=S.currency||'$';
+  document.getElementById('target-cur').textContent=cur;
+  const tEl=document.getElementById('weekly-target-input');
+  if(document.activeElement!==tEl)tEl.value=target;
+  document.getElementById('target-monthly').textContent='≈ '+fmt(target*52/12)+' per month · '+fmt(target*52)+' per year';
+
+  // This week's progress (income logged in the last 7 days)
+  const weekAgo=new Date(Date.now()-6*86400000).toISOString().split('T')[0];
+  const weekIn=S.transactions.filter(t=>t.type==='income'&&t.date>=weekAgo).reduce((s,t)=>s+t.amount,0);
+  const pctOf=target>0?Math.min(weekIn/target*100,100):0;
+  const fill=document.getElementById('week-progress-fill');
+  fill.style.width=pctOf+'%';
+  fill.className='progress-fill'+(weekIn>=target?' hit':'');
+  document.getElementById('week-progress-label').textContent=
+    weekIn>=target
+      ? '✓ Target hit — '+fmt(weekIn)+' logged in the last 7 days'
+      : fmt(weekIn)+' logged in the last 7 days — '+fmt(target-weekIn)+' to go ('+Math.round(pctOf)+'%)';
+
+  // What hitting the target funds each week
+  const taxPct=S.taxPct!==undefined?S.taxPct:TAX_DEFAULT;
+  const taxAmt=target*taxPct/100;
+  const afterTax=target-taxAmt;
+  const potRow=(color,name,pct,wk)=>`<div class="sp-row">
+    <div class="sp-name"><div class="dot-badge" style="background:${color}"></div><span>${name} (${pct}%)</span></div>
+    <div class="sp-amt">${fmt(wk)}<small>${fmt(wk*52/12)}/mo</small></div>
+  </div>`;
+  panel.innerHTML=
+    (taxPct>0?potRow('#5B9BD5','Tax provision',taxPct,taxAmt):'')+
+    S.allocations.filter(p=>p.key!=='tax').map(p=>potRow(p.color,p.name,p.pct,afterTax*p.pct/100)).join('');
+
+  // Commitments (from the Commitments page, converted to $)
+  if(!S.commitments)S.commitments=COMMIT_DEFAULTS.map(c=>({...c}));
+  const subs=S.subscriptions||[];
+  const subsMo=subs.reduce((s,x)=>s+x.cost,0);
+  const owedOut=(S.owed||[]).filter(o=>!o.repaid).reduce((s,o)=>s+o.amount,0);
+  const ct=commitTotals();
+  const headroom=target-ct.wk;
+  const catRows=CAT_ORDER.filter(c=>ct.cats[c]).map(c=>`
+    <div class="sp-row"><div class="sp-name"><span>${CAT_LABELS[c]}</span></div>
+      <div class="sp-amt">${fmtC(ct.cats[c].wk,'$')}/wk<small>${fmtC(ct.cats[c].mo,'$')}/mo</small></div></div>`).join('');
+  document.getElementById('commitments-panel').innerHTML=catRows+`
+    <div class="sp-row"><div class="sp-name"><span>Money owed (outstanding)</span></div>
+      <div class="sp-amt${owedOut>0?' neg':''}">${owedOut>0?fmt(owedOut):'—'}<small>one-off repayments due</small></div></div>
+    <div class="sp-total"><span>Committed</span><span class="sp-amt">${fmtC(ct.wk,'$')}/wk</span></div>
+    <div class="sp-total" style="border-top:none;padding-top:4px;"><span>Headroom at target</span>
+      <span class="sp-amt" style="color:${headroom>=0?'#81C784':'#E57373'}">${fmtC(headroom,'$')}/wk</span></div>
+    <div class="sp-note">Salaries include pension on top. £ converted at $${(S.fxGbpUsd||FX_DEFAULT).toFixed(2)} — edit on the Commitments page.${subsMo>0?` Tracked subscriptions currently ${fmt(subsMo)}/mo.`:''}</div>`;
+
+  // Safe to spend: pot balance minus a month of subs charged to that pot; total also holds back owed
+  const subsByPot={};
+  subs.forEach(x=>{subsByPot[x.pot]=(subsByPot[x.pot]||0)+x.cost;});
+  let totalFree=0;
+  const spendRows=S.allocations.filter(p=>p.key!=='tax').map(p=>{
+    const reserved=subsByPot[p.key]||0;
+    const free=pot(p.key)-reserved;
+    totalFree+=free;
+    return`<div class="sp-row">
+      <div class="sp-name"><div class="dot-badge" style="background:${p.color}"></div><span>${p.name}</span></div>
+      <div class="sp-amt${free<0?' neg':''}">${fmtS(free)}${reserved>0?`<small>${fmt(reserved)} held for subs</small>`:''}</div>
+    </div>`;
+  }).join('');
+  const netFree=totalFree-owedOut;
+  document.getElementById('spendable-panel').innerHTML=spendRows+
+    `<div class="sp-total"><span>Total spendable</span><span class="sp-amt${netFree<0?' neg':''}">${fmtS(netFree)}</span></div>`+
+    (owedOut>0?`<div class="sp-note" style="margin-top:4px;">Includes ${fmt(owedOut)} held back to repay money owed.</div>`:'');
+
+  renderMotionPanel();
+  renderRunway();
+}
+
 let incomeMode='all';
 
 function setIncomeMode(mode){
@@ -901,9 +1469,9 @@ function previewDist(){
   const taxRate=(S.taxPct!==undefined?S.taxPct:TAX_DEFAULT)/100;
   const taxAmt=parseFloat((amt*taxRate).toFixed(2));
   const afterTax=parseFloat((amt-taxAmt).toFixed(2));
-  let header=`<div class="dist-row" style="border-bottom:1px solid rgba(168,149,106,0.2);padding-bottom:6px;margin-bottom:4px;">
-    <span style="color:#5B9BD5;">Tax provision (${S.taxPct||TAX_DEFAULT}%)</span><span style="color:#5B9BD5;">−${fmt(taxAmt)}</span></div>
-  <div class="dist-row" style="padding-bottom:6px;margin-bottom:4px;"><span style="color:var(--muted);">After-tax to distribute</span><span>${fmt(afterTax)}</span></div>`;
+  let header=taxRate>0?`<div class="dist-row" style="border-bottom:1px solid rgba(168,149,106,0.2);padding-bottom:6px;margin-bottom:4px;">
+    <span style="color:#5B9BD5;">Tax provision (${S.taxPct||0}%)</span><span style="color:#5B9BD5;">−${fmt(taxAmt)}</span></div>
+  <div class="dist-row" style="padding-bottom:6px;margin-bottom:4px;"><span style="color:var(--muted);">After-tax to distribute</span><span>${fmt(afterTax)}</span></div>`:'';
   if(incomeMode==='all'){
     rows.innerHTML=header+S.allocations.filter(a=>a.key!=='tax').map(a=>`<div class="dist-row"><span>${a.name} (${a.pct}%)</span><span>+${fmt(afterTax*a.pct/100)}</span></div>`).join('');
     unallocEl.style.display='none';
@@ -935,9 +1503,11 @@ function addIncome(){
   const taxAmt=parseFloat((amount*taxRate).toFixed(2));
   const afterTax=parseFloat((amount-taxAmt).toFixed(2));
   const potsSnap={};
-  // Tax pot
-  S.pots['tax']=parseFloat(((S.pots['tax']||0)+taxAmt).toFixed(2));
-  potsSnap['tax']=taxAmt;
+  // Tax pot (skipped entirely while the provision is 0)
+  if(taxAmt>0){
+    S.pots['tax']=parseFloat(((S.pots['tax']||0)+taxAmt).toFixed(2));
+    potsSnap['tax']=taxAmt;
+  }
   // Allocate after-tax to pots
   if(incomeMode==='all'){
     S.allocations.filter(p=>p.key!=='tax').forEach(p=>{
@@ -1064,7 +1634,7 @@ function resetAll(){
 function nav(name){
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
-  const pages=['overview','income','expense','ledger','transfer','subscriptions','owed','settings'];
+  const pages=['overview','income','expense','ledger','transfer','subscriptions','commitments','owed','settings'];
   const idx=pages.indexOf(name);
   document.querySelectorAll('.nav-item')[idx].classList.add('active');
   document.getElementById('page-'+name).classList.add('active');
@@ -1074,6 +1644,7 @@ function nav(name){
   if(name==='income'){incomeMode='all';}
   if(name==='ledger')renderLedger();
   if(name==='subscriptions'){renderSubPots();renderSubscriptions();setTodayDates();}
+  if(name==='commitments')renderCommitments();
   if(name==='owed'){renderOwed();setTodayDates();}
 }
 
@@ -1183,7 +1754,7 @@ function addSubscription(){
   if(!S.subscriptions)S.subscriptions=[];
   S.subscriptions.push({id:uid(),name,cost,category,pot,notes});
   S.lastUpdated=new Date().toISOString();
-  saveToBin();renderSubscriptions();
+  saveToBin();renderSubscriptions();renderSpendPanel();
   document.getElementById('sub-name').value='';
   document.getElementById('sub-cost').value='';
   document.getElementById('sub-notes').value='';
@@ -1194,7 +1765,7 @@ function deleteSubscription(id){
   if(!confirm('Remove this subscription?'))return;
   S.subscriptions=(S.subscriptions||[]).filter(s=>s.id!==id);
   S.lastUpdated=new Date().toISOString();
-  saveToBin();renderSubscriptions();
+  saveToBin();renderSubscriptions();renderSpendPanel();
   toast('Subscription removed.');
 }
 
@@ -1235,7 +1806,7 @@ function addOwed(){
   if(!S.owed)S.owed=[];
   S.owed.push({id:uid(),who,amount,date,category,desc,repaid:false,repaidDate:null});
   S.lastUpdated=new Date().toISOString();
-  saveToBin();renderOwed();
+  saveToBin();renderOwed();renderSpendPanel();
   document.getElementById('owed-who').value='';
   document.getElementById('owed-amount').value='';
   document.getElementById('owed-desc').value='';
@@ -1249,7 +1820,7 @@ function markRepaid(id){
   item.repaid=true;
   item.repaidDate=new Date().toISOString().split('T')[0];
   S.lastUpdated=new Date().toISOString();
-  saveToBin();renderOwed();
+  saveToBin();renderOwed();renderSpendPanel();
   toast('Marked as repaid.');
 }
 
@@ -1257,7 +1828,7 @@ function deleteOwed(id){
   if(!confirm('Remove this entry?'))return;
   S.owed=(S.owed||[]).filter(o=>o.id!==id);
   S.lastUpdated=new Date().toISOString();
-  saveToBin();renderOwed();
+  saveToBin();renderOwed();renderSpendPanel();
   toast('Entry removed.');
 }
 
