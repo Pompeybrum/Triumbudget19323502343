@@ -830,11 +830,11 @@ const COMMIT_DEFAULTS=[
   {id:'c-lendy', name:'Lendy',               cat:'team', amount:100, cur:'USD',freq:'weekly', pensionPct:0},
   {id:'c-prize', name:'Prize pot',           cat:'prize',amount:8000,cur:'USD',freq:'weekly', pensionPct:0},
   {...MKT_COMMIT},
-  {id:'c-subs',  name:'Subscriptions (est.)',cat:'subs', amount:6000,cur:'USD',freq:'monthly',pensionPct:0},
+  {id:'c-subs',  name:'Subscriptions (est.)',cat:'subs', amount:8000,cur:'USD',freq:'monthly',pensionPct:0},
   {id:'c-legal', name:'Legal',               cat:'ops',  amount:1500,cur:'USD',freq:'monthly',pensionPct:0},
   {id:'c-rent',  name:'Rent',                cat:'ops',  amount:500, cur:'GBP',freq:'monthly',pensionPct:0},
 ];
-const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),mktBudgetAdded:true,fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
+const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),mktBudgetAdded:true,subs8k:true,fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
 
 let S=JSON.parse(JSON.stringify(EMPTY_STATE));
 let API_KEY='';
@@ -872,6 +872,11 @@ async function loadFromBin(){
     if(!S.mktBudgetAdded){
       if(!S.commitments.find(c=>c.id===MKT_COMMIT.id))S.commitments.push({...MKT_COMMIT});
       S.mktBudgetAdded=true;
+    }
+    if(!S.subs8k){
+      const sc=S.commitments.find(c=>c.id==='c-subs');
+      if(sc&&sc.amount===6000)sc.amount=8000;
+      S.subs8k=true;
     }
     if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
     if(!S.earn)S.earn={...EARN_DEFAULT};
@@ -926,6 +931,11 @@ async function setupConnect(){
     if(!S.mktBudgetAdded){
       if(!S.commitments.find(c=>c.id===MKT_COMMIT.id))S.commitments.push({...MKT_COMMIT});
       S.mktBudgetAdded=true;
+    }
+    if(!S.subs8k){
+      const sc=S.commitments.find(c=>c.id==='c-subs');
+      if(sc&&sc.amount===6000)sc.amount=8000;
+      S.subs8k=true;
     }
     if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
     if(!S.earn)S.earn={...EARN_DEFAULT};
