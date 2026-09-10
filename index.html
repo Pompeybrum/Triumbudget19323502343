@@ -280,6 +280,12 @@ select option{background:#1a1816;color:var(--paper)}
           </div>
 
           <div class="card">
+            <div class="card-label">Account balances</div>
+            <div id="accounts-panel"></div>
+            <div class="sp-note">Balances are shared with the whole team. £ converts at the rate on the Commitments page. The total pre-fills the runway's cash available.</div>
+          </div>
+
+          <div class="card">
             <div class="card-label">Safe to spend now</div>
             <div id="spendable-panel"></div>
             <div class="sp-note">Pot balance minus one month of subscriptions charged to that pot. Total also holds back money owed. Tax provision excluded.</div>
@@ -821,6 +827,11 @@ const FX_DEFAULT=1.35;
 const CAT_LABELS={team:'Team payroll',prize:'Prize pot',subs:'Subscriptions',mkt:'Marketing',ops:'Operations'};
 const CAT_ORDER=['team','prize','subs','mkt','ops'];
 const MKT_COMMIT={id:'c-mkt',name:'Marketing budget',cat:'mkt',amount:1000,cur:'USD',freq:'weekly',pensionPct:0};
+const ACCOUNT_DEFAULTS=[
+  {id:'a-alt',   name:'Altitude',cur:'USD',balance:0},
+  {id:'a-squads',name:'Squads',  cur:'USD',balance:0},
+  {id:'a-rev',   name:'Revolut', cur:'GBP',balance:0},
+];
 const COMMIT_DEFAULTS=[
   {id:'c-tim',   name:'Tim — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
   {id:'c-jon',   name:'Jon — salary',        cat:'team', amount:4800,cur:'GBP',freq:'monthly',pensionPct:5},
@@ -834,7 +845,7 @@ const COMMIT_DEFAULTS=[
   {id:'c-legal', name:'Legal',               cat:'ops',  amount:1500,cur:'USD',freq:'monthly',pensionPct:0},
   {id:'c-rent',  name:'Rent',                cat:'ops',  amount:500, cur:'GBP',freq:'monthly',pensionPct:0},
 ];
-const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),mktBudgetAdded:true,subs8k:true,fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
+const EMPTY_STATE={pots:{},transactions:[],allocations:POT_DEFAULTS.map(p=>({...p})),currency:'$',taxPct:TAX_DEFAULT,taxRemoved:true,weeklyTarget:WEEKLY_TARGET_DEFAULT,commitments:COMMIT_DEFAULTS.map(c=>({...c})),mktBudgetAdded:true,subs8k:true,accounts:ACCOUNT_DEFAULTS.map(a=>({...a})),fxGbpUsd:FX_DEFAULT,earn:{...EARN_DEFAULT},motion:{...MOTION_DEFAULT}};
 
 let S=JSON.parse(JSON.stringify(EMPTY_STATE));
 let API_KEY='';
@@ -878,6 +889,7 @@ async function loadFromBin(){
       if(sc&&sc.amount===6000)sc.amount=8000;
       S.subs8k=true;
     }
+    if(!S.accounts)S.accounts=ACCOUNT_DEFAULTS.map(a=>({...a}));
     if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
     if(!S.earn)S.earn={...EARN_DEFAULT};
     if(!S.motion)S.motion={...MOTION_DEFAULT};
@@ -937,6 +949,7 @@ async function setupConnect(){
       if(sc&&sc.amount===6000)sc.amount=8000;
       S.subs8k=true;
     }
+    if(!S.accounts)S.accounts=ACCOUNT_DEFAULTS.map(a=>({...a}));
     if(!S.fxGbpUsd)S.fxGbpUsd=FX_DEFAULT;
     if(!S.earn)S.earn={...EARN_DEFAULT};
     if(!S.motion)S.motion={...MOTION_DEFAULT};
@@ -1270,8 +1283,9 @@ function renderRunway(){
   if(!out)return;
   const allPotKeys=['tax',...S.allocations.filter(p=>p.key!=='tax').map(p=>p.key)];
   const potsTotal=allPotKeys.reduce((s,k)=>s+pot(k),0);
+  const acctTotal=accountsTotalUsd();
   const cashEl=document.getElementById('rw-cash');
-  if(document.activeElement!==cashEl&&!cashEl.dataset.dirty)cashEl.value=Math.round(potsTotal*100)/100;
+  if(document.activeElement!==cashEl&&!cashEl.dataset.dirty)cashEl.value=Math.round((acctTotal>0?acctTotal:potsTotal)*100)/100;
   const earnEl=document.getElementById('rw-earn');
   if(document.activeElement!==earnEl&&!earnEl.dataset.dirty)earnEl.value=S.weeklyTarget||WEEKLY_TARGET_DEFAULT;
   const cash=parseFloat(cashEl.value)||0;
@@ -1313,6 +1327,89 @@ function renderRunway(){
       goalOut.innerHTML=`At the current net, you reach ${fmtC(goal,'$')} in about <strong style="color:var(--gold)">${w.toFixed(1)} weeks</strong>.`;
     }else goalOut.textContent='Goal is out of reach while the net per week is negative — raise earnings or add a timeframe above.';
   }else goalOut.innerHTML='';
+}
+
+// ACCOUNT BALANCES
+function accountsTotalUsd(){
+  const rate=S.fxGbpUsd||FX_DEFAULT;
+  return (S.accounts||[]).reduce((s,a)=>s+(a.cur==='GBP'?(a.balance||0)*rate:(a.balance||0)),0);
+}
+
+function renderAccounts(){
+  const el=document.getElementById('accounts-panel');
+  if(!el)return;
+  // Don't rebuild (and steal focus) while someone is typing a balance
+  if(document.activeElement&&document.activeElement.id&&document.activeElement.id.indexOf('acc-')===0)return;
+  if(!S.accounts)S.accounts=ACCOUNT_DEFAULTS.map(a=>({...a}));
+  const rate=S.fxGbpUsd||FX_DEFAULT;
+  el.innerHTML=S.accounts.map(a=>{
+    const sym=a.cur==='GBP'?'£':'$';
+    const conv=a.cur==='GBP'?` <small style="color:var(--muted);font-size:10px;">≈ ${fmtC((a.balance||0)*rate,'$')}</small>`:'';
+    return`<div class="sp-row" style="align-items:center;">
+      <div class="sp-name"><span>${a.name} (${sym})${conv}</span></div>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <input type="number" step="0.01" id="acc-${a.id}" value="${a.balance||0}" oninput="updateAccountsTotal()" style="width:110px;text-align:right;font-family:'DM Mono',monospace;font-size:12px;padding:6px 8px;">
+        <button onclick="deleteAccount('${a.id}')" style="background:transparent;border:none;cursor:pointer;color:var(--muted);font-size:16px;line-height:1;padding:0 2px;" title="Remove account">×</button>
+      </div>
+    </div>`;
+  }).join('')+
+  `<div class="sp-total"><span>Total</span><span class="sp-amt" id="accounts-total">${fmtC(accountsTotalUsd(),'$')}</span></div>
+  <div style="display:flex;gap:8px;margin-top:10px;">
+    <button class="btn btn-primary btn-sm" onclick="saveAccounts()">Save balances</button>
+  </div>
+  <div style="display:flex;gap:6px;margin-top:10px;">
+    <input type="text" id="acc-new-name" placeholder="Add account…" style="flex:1;font-size:12px;padding:6px 8px;">
+    <select id="acc-new-cur" style="width:auto;font-size:12px;padding:6px 8px;"><option value="USD">$</option><option value="GBP">£</option></select>
+    <button class="btn btn-ghost btn-sm" onclick="addAccount()">Add</button>
+  </div>`;
+}
+
+function updateAccountsTotal(){
+  const rate=S.fxGbpUsd||FX_DEFAULT;
+  let t=0;
+  (S.accounts||[]).forEach(a=>{
+    const v=parseFloat(document.getElementById('acc-'+a.id)?.value)||0;
+    t+=a.cur==='GBP'?v*rate:v;
+  });
+  const el=document.getElementById('accounts-total');
+  if(el)el.textContent=fmtC(t,'$');
+}
+
+function saveAccounts(){
+  (S.accounts||[]).forEach(a=>{
+    const el=document.getElementById('acc-'+a.id);
+    if(el)a.balance=parseFloat(el.value)||0;
+  });
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();
+  document.activeElement&&document.activeElement.blur&&document.activeElement.blur();
+  render();
+  toast('Account balances saved.');
+}
+
+function addAccount(){
+  const name=document.getElementById('acc-new-name').value.trim();
+  if(!name){toast('Enter an account name.',false);return;}
+  const cur=document.getElementById('acc-new-cur').value;
+  // Capture any edited balances before the rebuild wipes the inputs
+  (S.accounts||[]).forEach(a=>{
+    const el=document.getElementById('acc-'+a.id);
+    if(el)a.balance=parseFloat(el.value)||0;
+  });
+  S.accounts.push({id:uid(),name,cur,balance:0});
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();
+  document.activeElement&&document.activeElement.blur&&document.activeElement.blur();
+  render();
+  toast('Account added.');
+}
+
+function deleteAccount(id){
+  if(!confirm('Remove this account from the list?'))return;
+  S.accounts=(S.accounts||[]).filter(a=>a.id!==id);
+  S.lastUpdated=new Date().toISOString();
+  saveToBin();render();
+  toast('Account removed.');
 }
 
 function renderMotionPanel(){
@@ -1428,6 +1525,7 @@ function renderSpendPanel(){
     `<div class="sp-total"><span>Total spendable</span><span class="sp-amt${netFree<0?' neg':''}">${fmtS(netFree)}</span></div>`+
     (owedOut>0?`<div class="sp-note" style="margin-top:4px;">Includes ${fmt(owedOut)} held back to repay money owed.</div>`:'');
 
+  renderAccounts();
   renderMotionPanel();
   renderRunway();
 }
